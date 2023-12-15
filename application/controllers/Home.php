@@ -25,7 +25,8 @@ class Home extends CI_Controller {
 		$this->update_company();
 		echo "<br/>";
 		
-		$companies = $this->gm->filter("company", ["stock !=" => null]);
+		filter($tablename, $w)
+		$companies = $this->gm->filter("company", ["stock !=" => null], null, null, $orders = [["stock", "asc"]], "", "");
 		foreach($companies as $c) if ($c->stock) $this->update_stocks($c->stock);
 		echo "<br/>";
 		
