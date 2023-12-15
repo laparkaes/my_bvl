@@ -17,7 +17,7 @@ class Home extends CI_Controller {
 		];
 		//$this->load->view('layout', $data);
 		
-		$this->general_update();
+		//$this->general_update();
 		
 	}
 	
@@ -25,7 +25,6 @@ class Home extends CI_Controller {
 		$this->update_company();
 		echo "<br/>";
 		
-		filter($tablename, $w)
 		$companies = $this->gm->filter("company", ["stock !=" => null], null, null, $orders = [["stock", "asc"]], "", "");
 		foreach($companies as $c) if ($c->stock) $this->update_stocks($c->stock);
 		echo "<br/>";
