@@ -299,9 +299,25 @@
   /**
    * Initiate Datatables
    */
-  const datatables = select('.datatable', true)
+  const datatables = select('.datatable', true);
+  const options = {
+			searchable: true,
+			sortable: false,
+			classes: {
+				input: "form-control",
+				selector: "form-select",
+			},
+			labels: {
+				placeholder: "Buscar",
+				searchTitle: "",
+				perPage: "",
+				noRows: "No hay registro para mostrar.",
+				noResults: "No hay registro para mostrar.",
+				info: "{start} - {end} de {rows} registros", // (Page {page} of {pages} pages)
+			},
+		};
   datatables.forEach(datatable => {
-    new simpleDatatables.DataTable(datatable);
+    new simpleDatatables.DataTable(datatable, option);
   })
 
   /**

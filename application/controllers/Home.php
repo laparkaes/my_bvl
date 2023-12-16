@@ -7,18 +7,115 @@ class Home extends CI_Controller {
 		parent::__construct();
 		set_time_limit(0);
 		$this->load->model('general_model','gm');
+		$this->load->model('stock_model','stock');
 	}
 
 	public function index(){
+		//update, load and filter domestic companies
+		$companies = $this->daily_update();
+		
+		//sort buy var%
+		usort($companies, function($a, $b){
+			if (!property_exists($a, 'percentageChange')) $a->percentageChange = 0;
+			if (!property_exists($b, 'percentageChange')) $b->percentageChange = 0;
+			return $a->percentageChange < $b->percentageChange;
+		});
+		
+		//check properties and set colors
+		$properties = ["buy", "sell", "opening", "last", "minimun", "maximun", "previous", "previousDate"];
+		foreach($companies as $c){
+			foreach($properties as $p) if (!property_exists($c, $p)) $c->$p = "-";
+			
+			$c->row_color = "";
+			switch(true){
+				case $c->percentageChange > 0:
+					if ($c->percentageChange > 5) $c->row_color = "success";
+					$c->color = "success";
+					break;
+				case $c->percentageChange < 0:
+					if ($c->percentageChange < -5) $c->row_color = "danger";
+					$c->color = "danger"; 
+					break;
+				default: $c->color = "";
+			}
+			$c->data = $this->gm->unique("company", "stock", $c->nemonico);
+		}
+		
+		//load favorites
+		$favorites = [];
+		$favorites_rec = $this->gm->all("favorite");
+		foreach($favorites_rec as $f) $favorites[] = $f->company_id;
 		
 		$data = [
-			
+			"favorites" => $favorites,
+			"companies" => $companies,
 			"main" => "home",
 		];
-		//$this->load->view('layout', $data);
+		$this->load->view('layout', $data);
+	}
+	
+	public function favorite_control(){
+		$data = ["company_id" => $this->input->post("company_id")];
+		if ($this->gm->filter("favorite", $data)){
+			$this->gm->delete("favorite", ["company_id" => $this->input->post("company_id")]);
+			$data["type"] = "removed";
+		}else{
+			$this->gm->insert("favorite", ["company_id" => $this->input->post("company_id")]);
+			$data["type"] = "inserted";
+		}
 		
-		//$this->general_update();
+		header('Content-Type: application/json');
+		echo json_encode($data);
+	}
+	
+	private function get_now($is_today){
+		$url = "https://dataondemand.bvl.com.pe/v1/stock-quote/market";
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => "",
+			"sector" => "",
+			"today" => $is_today,
+		];
 		
+		return $this->exec_curl($url, $data, true);
+	}
+	
+	private function daily_update(){
+		$my_stocks = [];
+		
+		//get lastest stocks of each company of my db
+		$last_stocks = $this->stock->get_last_stocks();
+		foreach($last_stocks as $ls) $my_stocks[$ls->nemonico]["last_date"] = $ls->last_date;
+		
+		$stocks_d = $stocks_f = []; //domestic & foreign stocks
+		$stocks_now = $this->get_now(true);//load from bvl db
+		$stocks = $stocks_now->content;//filter stock records
+		foreach($stocks as $s){
+			if (property_exists($s, 'sectorCode')) $stocks_d[] = $s;//domestic stock
+			else $stocks_f[] = $s;//foreign stock
+		}
+		
+		//just work with domestic stocks
+		foreach($stocks_d as $s){
+			if (property_exists($s, 'previousDate')){
+				$my_stocks[$s->nemonico]["previousDate"] = $s->previousDate;
+			}else unset($my_stocks[$s->nemonico]);//no stock history. maybe today is first stock record
+		}
+		
+		foreach($my_stocks as $stock => $ms){
+			if (array_key_exists('previousDate', $ms)){
+				if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"])){
+					//need to update new stock history
+					$this->update_stocks($stock, $ms["last_date"]);
+					
+					//update stock record qty in company table
+					$qty = $this->gm->qty("stock", ["nemonico" => $stock]);
+					if ($qty > 0) $this->gm->update("company", ["stock" => $stock], ["qty" => $qty]);
+				}else unset($my_stocks[$stock]);//already last version of stock records
+			}else unset($my_stocks[$stock]);//no today record exists
+		}
+		
+		return $stocks_d;//return domestic records of today
 	}
 	
 	private function general_update(){
@@ -26,7 +123,18 @@ class Home extends CI_Controller {
 		echo "<br/>";
 		
 		$companies = $this->gm->filter("company", ["stock !=" => null], null, null, $orders = [["stock", "asc"]], "", "");
-		foreach($companies as $c) if ($c->stock) $this->update_stocks($c->stock);
+		foreach($companies as $c) if ($c->stock){
+			//load last stock
+			$last_stock = $this->gm->filter("stock", ["nemonico" => $c->stock], null, null, [["date", "desc"]], 1, 0);
+			if ($last_stock) $last_date = $last_stock[0]->date; else $last_date = "1999-01-01";
+			
+			//update stocks from last stock date to today
+			$this->update_stocks($c->stock, $last_date);
+			
+			//update stocks record qty in company table
+			$qty = $this->gm->qty("stock", ["nemonico" => $c->stock]);
+			if ($qty > 0) $this->gm->update("company", ["company_id" => $c->company_id], ["qty" => $qty]);
+		}
 		echo "<br/>";
 		
 		echo "Fin de actualizacion de general.<br/>";
@@ -39,6 +147,7 @@ class Home extends CI_Controller {
 		$code = str_replace("/", "%2F", $code);
 		$from_history = date('Y-m-d', strtotime('-1 day', strtotime($from)));
 		$to_history = date('Y-m-d', strtotime('+1 day', strtotime($to)));
+		echo "search ".$code.", ".$from_history." ~ ".$to_history."<br/>";
 		
 		$datas = [];
 		$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$code."?startDate=".$from_history."&endDate=".$to_history;

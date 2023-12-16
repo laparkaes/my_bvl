@@ -20,19 +20,19 @@
 		<div class="d-flex align-items-center justify-content-between">
 			<a href="<?= base_url() ?>" class="logo d-flex align-items-center">
 				<img src="<?= base_url() ?>assets/img/logo.svg" alt="" style="width:50px;">
-				<span class="d-none d-lg-block">Mailing Sys 1.0</span>
+				<span class="d-none d-lg-block">My BVL 1.0</span>
 			</a>
 		</div>
 		<nav class="header-nav ms-auto">
 			<ul class="d-flex align-items-center">
 				<li class="nav-item">
 					<a class="nav-link nav-icon" href="<?= base_url() ?>">
-						<i class="bi bi-send"></i>
+						<i class="bi bi-house"></i>
 					</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link nav-icon" href="<?= base_url() ?>home/sender">
-						<i class="bi bi-envelope"></i>
+					<a class="nav-link nav-icon" href="<?= base_url() ?>companies">
+						<i class="bi bi-buildings"></i>
 					</a>
 				</li>
 				<li class="nav-item">

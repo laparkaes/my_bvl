@@ -30,6 +30,23 @@ function ajax_simple(data, url){
 	return deferred.promise();
 }
 
+$(".ic_fav_control").on('click',(function(e) {
+	ajax_simple({company_id: $(this).attr("value")}, "home/favorite_control").done(function(res) {
+		var dom = ".ic_fav_" + res.company_id;
+		if (res.type == "inserted"){
+			$(dom).removeClass("bi-star");
+			$(dom).addClass("bi-star-fill");
+		}else{
+			$(dom).addClass("bi-star");
+			$(dom).removeClass("bi-star-fill");
+		}
+	});
+}));
+
+
+///////////////////////////
+
+
 $(".btn_delete_sender").on('click',(function(e) {
 	if (!confirm("Are you sure you want to delete sender?")) event.preventDefault();
 }));

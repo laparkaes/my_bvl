@@ -1,5 +1,8 @@
 <div class="pagetitle mb-3">
-	<h1>Auto Mailing</h1>
+	<div class="d-flex justify-content-between">
+		<h1>Movimientos de Hoy</h1>
+		<h1><?= date("Y-m-d") ?></h1>
+	</div>
 </div>
 <section class="section">
 	<div class="row">
@@ -13,51 +16,106 @@
 					<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 				</div>
 			<?php } ?>
-			<div class="card">
+				<div class="card">
 				<div class="card-body">
-					<h5 class="card-title">Parameters</h5>
-					<!--form class="row g-3 mb-0" method="post" action="<?= base_url() ?>home/send_emails" target="_blank" -->
-					<form class="row g-3 mb-0" id="form_send_email">
-						<div class="col-md-4 col-12">
-							<label class="form-label">Sender</label>
-							<select class="form-select" name="sender_id">
-								<option value="">Select...</option>
-								<?php foreach($senders as $s){ ?>
-								<option value="<?= $s->sender_id ?>"><?= $s->title ?> (<?= $s->smtp_user ?>)</option>	
-								<?php } ?>
-							</select>
-						</div>
-						<div class="col-md-4 col-12">
-							<label class="form-label">Content</label>
-							<select class="form-select" name="content_id">
-								<option value="">Select...</option>
-								<?php foreach($contents as $c){ ?>
-								<option value="<?= $c->content_id ?>"><?= $c->title ?></option>	
-								<?php } ?>
-							</select>
-						</div>
-						<div class="col-md-4 col-12">
-							<label class="form-label">Email list</label>
-							<select class="form-select" name="list_id">
-								<option value="">Select...</option>
-								<?php foreach($email_lists as $e){ ?>
-								<option value="<?= $e->list_id ?>"><?= $e->list ?></option>	
-								<?php } ?>
-							</select>
-						</div>
-						<div class="text-center pt-3">
-							<button type="button" class="btn btn-primary" id="btn_start">Start</button>
-							<button type="button" class="btn btn-danger d-none" id="btn_stop">Stop</button>
-						</div>
-					</form>
+					<h5 class="card-title">Favoritos</h5>
+					<div class="table-responsive">
+						<table class="table" style="font-size: 11px;">
+							<thead>
+								<tr>
+									<th scope="col"></th>
+									<th scope="col">Empresa</th>
+									<th scope="col">Nemonico</th>
+									<th scope="col">#Registro</th>
+									<th scope="col">Sector</th>
+									<th scope="col">Var%</th>
+									<th scope="col">Moneda</th>
+									<th scope="col">Compra</th>
+									<th scope="col">Venta</th>
+									<th scope="col">Apert.</th>
+									<th scope="col">Ult</th>
+									<th scope="col">Anterior</th>
+									<th scope="col">FechaAnt.</th>
+									<th scope="col">#Nego.</th>
+									<th scope="col">Ult.Hora</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach($companies as $c){ if (in_array($c->data->company_id, $favorites)){ ?>
+								<tr class="table-<?= $c->row_color ?>">
+									<td>
+										<i class="bi bi-star<?= (in_array($c->data->company_id, $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $c->data->company_id ?>" value="<?= $c->data->company_id ?>"></i>
+									</td>
+									<td><?= $c->companyName ?></td>
+									<td><?= $c->nemonico ?></td>
+									<td><?= number_format($c->data->qty) ?></td>
+									<td><?= $c->sectorDescription ?></td>
+									<td class="text-<?= $c->color ?>"><?= $c->percentageChange ?>%</td>
+									<td><?= $c->currency ?></td>
+									<td><?= $c->buy ?></td>
+									<td><?= $c->sell ?></td>
+									<td><?= $c->opening ?></td>
+									<td><strong><?= $c->last ?></strong></td>
+									<td><strong><?= $c->previous ?></strong></td>
+									<td><?= $c->previousDate ?></td>
+									<td><?= number_format($c->negotiatedQuantity) ?></td>
+									<td><?= date("H:m:s", strtotime($c->lastDate)) ?></td>
+								</tr>
+								<?php }} ?>
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
-		</div>
-		<div class="col-md-12">
 			<div class="card">
 				<div class="card-body">
-					<h5 class="card-title">Result</h5>
-					<div id="bl_mailing_result"></div>
+					<h5 class="card-title">General</h5>
+					<div class="table-responsive">
+						<table class="table" style="font-size: 11px;">
+							<thead>
+								<tr>
+									<th scope="col"></th>
+									<th scope="col">Empresa</th>
+									<th scope="col">Nemonico</th>
+									<th scope="col">#Registro</th>
+									<th scope="col">Sector</th>
+									<th scope="col">Var%</th>
+									<th scope="col">Moneda</th>
+									<th scope="col">Compra</th>
+									<th scope="col">Venta</th>
+									<th scope="col">Apert.</th>
+									<th scope="col">Ult</th>
+									<th scope="col">Anterior</th>
+									<th scope="col">FechaAnt.</th>
+									<th scope="col">#Nego.</th>
+									<th scope="col">Ult.Hora</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach($companies as $c){ ?>
+								<tr class="table-<?= $c->row_color ?>">
+									<td>
+										<i class="bi bi-star<?= (in_array($c->data->company_id, $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $c->data->company_id ?>" value="<?= $c->data->company_id ?>"></i>
+									</td>
+									<td><?= $c->companyName ?></td>
+									<td><?= $c->nemonico ?></td>
+									<td><?= number_format($c->data->qty) ?></td>
+									<td><?= $c->sectorDescription ?></td>
+									<td class="text-<?= $c->color ?>"><?= $c->percentageChange ?>%</td>
+									<td><?= $c->currency ?></td>
+									<td><?= $c->buy ?></td>
+									<td><?= $c->sell ?></td>
+									<td><?= $c->opening ?></td>
+									<td><strong><?= $c->last ?></strong></td>
+									<td><strong><?= $c->previous ?></strong></td>
+									<td><?= $c->previousDate ?></td>
+									<td><?= number_format($c->negotiatedQuantity) ?></td>
+									<td><?= date("H:m:s", strtotime($c->lastDate)) ?></td>
+								</tr>
+								<?php } ?>
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 		</div>
