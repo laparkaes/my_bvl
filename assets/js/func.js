@@ -31,7 +31,7 @@ function ajax_simple(data, url){
 }
 
 $(".ic_fav_control").on('click',(function(e) {
-	ajax_simple({company_id: $(this).attr("value")}, "home/favorite_control").done(function(res) {
+	ajax_simple({company_id: $(this).attr("value")}, "company/favorite_control").done(function(res) {
 		var dom = ".ic_fav_" + res.company_id;
 		if (res.type == "inserted"){
 			$(dom).removeClass("bi-star");

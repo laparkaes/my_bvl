@@ -31,7 +31,7 @@
 					</a>
 				</li>
 				<li class="nav-item">
-					<a class="nav-link nav-icon" href="<?= base_url() ?>companies">
+					<a class="nav-link nav-icon" href="<?= base_url() ?>company">
 						<i class="bi bi-buildings"></i>
 					</a>
 				</li>

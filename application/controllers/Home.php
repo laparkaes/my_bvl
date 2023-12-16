@@ -53,21 +53,7 @@ class Home extends CI_Controller {
 		];
 		$this->load->view('layout', $data);
 	}
-	
-	public function favorite_control(){
-		$data = ["company_id" => $this->input->post("company_id")];
-		if ($this->gm->filter("favorite", $data)){
-			$this->gm->delete("favorite", ["company_id" => $this->input->post("company_id")]);
-			$data["type"] = "removed";
-		}else{
-			$this->gm->insert("favorite", ["company_id" => $this->input->post("company_id")]);
-			$data["type"] = "inserted";
-		}
 		
-		header('Content-Type: application/json');
-		echo json_encode($data);
-	}
-	
 	private function get_now($is_today){
 		$url = "https://dataondemand.bvl.com.pe/v1/stock-quote/market";
 		$data = [
@@ -110,7 +96,7 @@ class Home extends CI_Controller {
 					
 					//update stock record qty in company table
 					$qty = $this->gm->qty("stock", ["nemonico" => $stock]);
-					if ($qty > 0) $this->gm->update("company", ["stock" => $stock], ["qty" => $qty]);
+					if ($qty > 0) $this->gm->update("company", ["stock" => $stock], ["qty_total" => $qty]);
 				}else unset($my_stocks[$stock]);//already last version of stock records
 			}else unset($my_stocks[$stock]);//no today record exists
 		}
@@ -118,7 +104,7 @@ class Home extends CI_Controller {
 		return $stocks_d;//return domestic records of today
 	}
 	
-	private function general_update(){
+	public function general_update(){
 		$this->update_company();
 		echo "<br/>";
 		
@@ -133,7 +119,7 @@ class Home extends CI_Controller {
 			
 			//update stocks record qty in company table
 			$qty = $this->gm->qty("stock", ["nemonico" => $c->stock]);
-			if ($qty > 0) $this->gm->update("company", ["company_id" => $c->company_id], ["qty" => $qty]);
+			if ($qty > 0) $this->gm->update("company", ["company_id" => $c->company_id], ["qty_total" => $qty]);
 		}
 		echo "<br/>";
 		

@@ -1,7 +1,9 @@
 <div class="pagetitle mb-3">
 	<div class="d-flex justify-content-between">
-		<h1>Movimientos de Hoy</h1>
 		<h1><?= date("Y-m-d") ?></h1>
+		<a class="btn btn-primary btn-sm" href="<?= base_url() ?>home/general_update" target="_blank">
+			Actualizacion General
+		</a>
 	</div>
 </div>
 <section class="section">
@@ -16,7 +18,7 @@
 					<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 				</div>
 			<?php } ?>
-				<div class="card">
+			<div class="card">
 				<div class="card-body">
 					<h5 class="card-title">Favoritos</h5>
 					<div class="table-responsive">
@@ -24,10 +26,10 @@
 							<thead>
 								<tr>
 									<th scope="col"></th>
-									<th scope="col">Empresa</th>
+									<th scope="col" style="width: 280px;">Empresa</th>
+									<th scope="col" style="width: 110px;">Sector</th>
 									<th scope="col">Nemonico</th>
 									<th scope="col">#Registro</th>
-									<th scope="col">Sector</th>
 									<th scope="col">Var%</th>
 									<th scope="col">Moneda</th>
 									<th scope="col">Compra</th>
@@ -46,10 +48,14 @@
 									<td>
 										<i class="bi bi-star<?= (in_array($c->data->company_id, $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $c->data->company_id ?>" value="<?= $c->data->company_id ?>"></i>
 									</td>
-									<td><?= $c->companyName ?></td>
-									<td><?= $c->nemonico ?></td>
-									<td><?= number_format($c->data->qty) ?></td>
+									<td>
+										<a href="<?= base_url() ?>company/detail/<?= $c->data->company_id ?>">
+											<?= $c->companyName ?>
+										</a>
+									</td>
 									<td><?= $c->sectorDescription ?></td>
+									<td><?= $c->nemonico ?></td>
+									<td><?= number_format($c->data->qty_total) ?></td>
 									<td class="text-<?= $c->color ?>"><?= $c->percentageChange ?>%</td>
 									<td><?= $c->currency ?></td>
 									<td><?= $c->buy ?></td>
@@ -75,10 +81,10 @@
 							<thead>
 								<tr>
 									<th scope="col"></th>
-									<th scope="col">Empresa</th>
+									<th scope="col" style="width: 280px;">Empresa</th>
+									<th scope="col" style="width: 110px;">Sector</th>
 									<th scope="col">Nemonico</th>
 									<th scope="col">#Registro</th>
-									<th scope="col">Sector</th>
 									<th scope="col">Var%</th>
 									<th scope="col">Moneda</th>
 									<th scope="col">Compra</th>
@@ -97,10 +103,14 @@
 									<td>
 										<i class="bi bi-star<?= (in_array($c->data->company_id, $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $c->data->company_id ?>" value="<?= $c->data->company_id ?>"></i>
 									</td>
-									<td><?= $c->companyName ?></td>
-									<td><?= $c->nemonico ?></td>
-									<td><?= number_format($c->data->qty) ?></td>
+									<td>
+										<a href="<?= base_url() ?>company/detail/<?= $c->data->company_id ?>">
+											<?= $c->companyName ?>
+										</a>
+									</td>
 									<td><?= $c->sectorDescription ?></td>
+									<td><?= $c->nemonico ?></td>
+									<td><?= number_format($c->data->qty_total) ?></td>
 									<td class="text-<?= $c->color ?>"><?= $c->percentageChange ?>%</td>
 									<td><?= $c->currency ?></td>
 									<td><?= $c->buy ?></td>
