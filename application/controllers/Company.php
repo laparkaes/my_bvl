@@ -1,6 +1,9 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+use LupeCode\phpTraderNative\TALib\Enum\MovingAverageType;
+use LupeCode\phpTraderNative\Trader;
+
 class Company extends CI_Controller {
 
 	public function __construct(){
@@ -34,10 +37,9 @@ class Company extends CI_Controller {
 	}
 	
 	public function detail($company_id){
-		$success_msgs = $error_msgs = [];
-		
 		$company = $this->gm->unique("company", "company_id", $company_id);
 		if (!$company){
+			$success_msgs = $error_msgs = [];
 			$error_msgs[] = "Empresa no existe.";
 			
 			$msgs = ["success_msgs" => $success_msgs, "error_msgs" => $error_msgs];
@@ -155,6 +157,281 @@ class Company extends CI_Controller {
 		header('Content-Type: application/json');
 		echo json_encode($data);
 	}
+	
+	public function update_indicators($company_id){
+		$company = $this->gm->unique("company", "company_id", $company_id);
+		if (!$company){
+			$success_msgs = $error_msgs = [];
+			$error_msgs[] = "Empresa no existe.";
+			
+			$msgs = ["success_msgs" => $success_msgs, "error_msgs" => $error_msgs];
+			$this->session->set_flashdata('msgs', $msgs);
+			redirect("/company");
+		}
+		
+		$dates = $closes = $highs = $lows = $negos = [];
+		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "asc"]]);
+		foreach($stocks as $s){
+			if ($s->close){
+				$dates[] = $s->date;
+				$closes[] = $s->close;
+				$highs[] = $s->high;
+				$lows[] = $s->low;
+				$negos[] = $s->quantityNegotiated;
+			}
+		}
+		
+		/*
+		print_r($dates); echo "<br/><br/>";
+		print_r($closes); echo "<br/><br/>";
+		print_r($highs); echo "<br/><br/>";
+		print_r($lows); echo "<br/><br/>";
+		print_r($negos); echo "<br/><br/>";
+		*/
+		
+		//adx
+		$adx = $this->get_adx($highs, $lows, $closes, 14);
+		$adx_pdi = $adx["pdi"];
+		$adx_mdi = $adx["mdi"];
+		$adx = $adx["adx"];
+		
+		//atr
+		$atr = $this->get_atr($highs, $lows, $closes, 14);
+		
+		//bollinger band
+		$bb = $this->get_bollinger($closes, 20, 2, 2, true);
+		$bb_u = $bb["uppers"];
+		$bb_m = $bb["middles"];
+		$bb_l = $bb["lowers"];
+		
+		//cci
+		$cci = $this->get_cci($highs, $lows, $closes, 20);
+		
+		//ema
+		$ema_5 = $this->get_ema($closes, 5);
+		$ema_20 = $this->get_ema($closes, 20);
+		$ema_60 = $this->get_ema($closes, 60);
+		$ema_120 = $this->get_ema($closes, 120);
+		$ema_200 = $this->get_ema($closes, 200);
+		
+		//envelope
+		$env = $this->get_envelope($closes, 20, 0.15);
+		$env_u = $env["uppers"];
+		$env_l = $env["lowers"];
+		
+		//ichomoku cloud
+		$ich = $this->get_icloud($closes);
+		$ich_a = $ich["span_a"];
+		$ich_b = $ich["span_b"];
+		
+		echo count($negos); echo "<br/><br/>";
+		echo count($ich_a); echo "<br/><br/>";
+		print_r($ich_a);
+	}
+	
+	private function blank_array($count){
+		$arr = [];
+		for($i = 0; $i < $count; $i++) $arr[] = null;
+		return $arr;
+	}
+	
+	private function get_adx($highs, $lows, $closes, $period = 14){
+		$pdi = Trader::plus_di($highs, $lows, $closes, $period);
+		$mdi = Trader::minus_di($highs, $lows, $closes, $period);
+		$adx = Trader::adx($highs, $lows, $closes, $period);
+		
+		if ($pdi){
+			$arr = $this->blank_array(count($closes) - count($pdi));
+			$pdi = array_merge($arr, $pdi);
+			$mdi = array_merge($arr, $mdi);
+		}else $pdi = $mdi = $this->blank_array(count($closes));
+		
+		if ($adx) $adx = array_merge($this->blank_array(count($closes) - count($adx)), $adx);
+		else $adx = $this->blank_array(count($closes));
+		
+		return ["pdi" => $pdi, "mdi" => $mdi, "adx" => $adx];
+	}
+	
+	private function get_atr($highs, $lows, $closes, $period = 14){
+		$atr = Trader::atr($highs, $lows, $closes, $period);
+		if ($atr) return array_merge($this->blank_array(count($closes) - count($atr)), $atr);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_bollinger($closes, $period = 20, $mupper = 2, $mlower = 2, $is_sma = true){
+		if ($is_sma) $avg_type = MovingAverageType::SMA; else $avg_type = MovingAverageType::EMA;
+		$bollinger_general = Trader::bbands($closes, $period, $mupper, $mlower, $avg_type);
+		if ($bollinger_general){
+			$arr = $this->blank_array(count($closes) - count($bollinger_general["UpperBand"]));
+			$uppers = array_merge($arr, $bollinger_general["UpperBand"]);
+			$middles = array_merge($arr, $bollinger_general["MiddleBand"]);
+			$lowers = array_merge($arr, $bollinger_general["LowerBand"]);
+		}else $uppers = $middles = $lowers = $this->blank_array(count($closes));
+		
+		return ["uppers" => $uppers, "middles" => $middles, "lowers" => $lowers];
+	}
+	
+	private function get_cci($highs, $lows, $closes, $period = 20){
+		$cci = Trader::cci($highs, $lows, $closes, $period);
+		if ($cci) return array_merge($this->blank_array(count($closes) - count($cci)), $cci);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_ema($closes, $period){
+		$ema = Trader::ema($closes, $period);
+		if ($ema) return array_merge($this->blank_array(count($closes) - count($ema)), $ema);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_envelope($closes, $period = 20, $diff = 0.15){
+		$sma_20 = $this->get_sma($closes, $period);
+		$top = 1 + $diff;
+		$bottom = 1 - $diff;
+		
+		$uppers = $lowers = [];
+		foreach($sma_20 as $item){
+			array_push($uppers, $item * $top);
+			array_push($lowers, $item * $bottom);
+		}
+		
+		return ["uppers" => $uppers, "lowers" => $lowers];
+	}
+	
+	private function get_icloud($closes){
+		$span_a = $span_b = [];
+		if ($closes){
+			$max_9 = Trader::max($closes, 9);
+			$min_9 = Trader::min($closes, 9);
+			if ($max_9){
+				$arr = $this->blank_array(count($closes) - count($max_9));
+				$max_9 = array_merge($arr, $max_9);
+				$min_9 = array_merge($arr, $min_9);
+			}else $max_9 = $min_9 = $this->blank_array(count($closes));
+			
+			$max_26 = Trader::max($closes, 26);
+			$min_26 = Trader::min($closes, 26);
+			if ($max_26){
+				$arr = $this->blank_array(count($closes) - count($max_26));
+				$max_26 = array_merge($arr, $max_26);
+				$min_26 = array_merge($arr, $min_26);
+			}else $max_26 = $min_26 = $this->blank_array(count($closes));
+			
+			$max_52 = Trader::max($closes, 52);
+			$min_52 = Trader::min($closes, 52);
+			if ($max_52){
+				$arr = $this->blank_array(count($closes) - count($max_52));
+				$max_52 = array_merge($arr, $max_52);
+				$min_52 = array_merge($arr, $min_52);
+			}else $max_52 = $min_52 = $this->blank_array(count($closes));
+			
+			for($i = 0; $i < 26; $i++){
+				$span_a[$i] = 0;
+				$span_b[$i] = 0;
+			}
+			
+			foreach($closes as $i => $value){
+				$conversion_line = ($min_9[$i] + $max_9[$i]) / 2;
+				$base_line = ($min_26[$i] + $max_26[$i]) / 2;
+				
+				$span_a[$i + 26] = ($conversion_line + $base_line) / 2;
+				$span_b[$i + 26] = ($min_52[$i] + $max_52[$i]) / 2;
+			}
+		}
+		
+		return ["span_a" => $span_a, "span_b" => $span_b];
+	}
+	
+	private function get_macd($closes, $fast_period, $slow_period, $signal_period){
+		$macd_general = Trader::macd($closes, $fast_period, $slow_period, $signal_period);
+		if ($macd_general){
+			$arr = $this->blank_array(count($closes) - count($macd_general["MACD"]));
+			$macd = array_merge($arr, $macd_general["MACD"]);
+			$macd_signal = array_merge($arr, $macd_general["MACDSignal"]);
+			$macd_divergence = array_merge($arr, $macd_general["MACDHist"]);
+		}else $macd = $macd_signal = $macd_divergence = $this->blank_array(count($closes));
+		
+		return array("macd" => $macd, "macd_sig" => $macd_signal, "macd_div" => $macd_divergence);
+	}
+	
+	private function get_mfi($highs, $lows, $closes, $negos, $period){
+		$mfi = Trader::mfi($highs, $lows, $closes, $negos, $period);
+		if ($mfi) return array_merge($this->blank_array(count($closes) - count($mfi)), $mfi);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_mom($closes, $period, $period_signal){
+		$mom = Trader::mom($closes, $period);
+		if ($mom){
+			$mom = array_merge($this->blank_array(count($closes) - count($mom)), $mom);
+			$mom_signal = $this->get_sma($mom, $period_signal);
+		}else $mom = $mom_signal = $this->blank_array(count($closes));
+		
+		return array("mom" => $mom, "mom_signal" => $mom_signal);
+	}
+	
+	private function get_parabolic_sar($highs, $lows, $acceleration, $maximum){
+		$parabolic_sar = Trader::sar($highs, $lows, $acceleration, $maximum);
+		if ($parabolic_sar) return array_merge($this->blank_array(count($highs) - count($parabolic_sar)), $parabolic_sar);
+		else return $this->blank_array(count($highs));
+	}
+	
+	private function get_ppo($closes, $fast_period, $slow_period, $is_sma){
+		if ($is_sma) $ma = MovingAverageType::SMA; else $ma = MovingAverageType::EMA;
+		$ppo = Trader::ppo($closes, $fast_period, $slow_period, $ma);
+		if ($ppo) return array_merge($this->blank_array(count($closes) - count($ppo)), $ppo);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_price_channel($highs, $lows, $period){
+		$uppers = Trader::max($highs, $period);
+		$lowers = Trader::min($lows, $period);
+		if ($uppers){
+			$arr = $this->blank_array(count($highs) - count($uppers));
+			$uppers = array_merge($arr, $uppers);
+			$lowers = array_merge($arr, $lowers);
+		}else $uppers = $lowers = $this->blank_array(count($highs));
+		
+		return array("uppers" => $uppers, "lowers" => $lowers);
+	}
+	
+	private function get_rsi($closes, $period){
+		$rsi = Trader::rsi($closes, $period);
+		if ($rsi) return array_merge($this->blank_array(count($closes) - count($rsi)), $rsi);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_sma($closes, $period){
+		$sma = Trader::sma($closes, $period);
+		if ($sma) return array_merge($this->blank_array(count($closes) - count($sma)), $sma);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_stochastic($highs, $lows, $closes, $fk_period, $sk_period, $is_k_sma, $d_period, $is_d_sma){
+		if ($is_k_sma) $k_ma = MovingAverageType::SMA; else $k_ma = MovingAverageType::EMA;
+		if ($is_d_sma) $d_ma = MovingAverageType::SMA; else $d_ma = MovingAverageType::EMA;
+		$stochastic =  Trader::stoch($highs, $lows, $closes, $fk_period, $sk_period, $k_ma, $d_period, $d_ma);
+		if ($stochastic){
+			$arr = $this->blank_array(count($highs) - count($stochastic["SlowK"]));
+			$k = array_merge($arr, $stochastic["SlowK"]);
+			$d = array_merge($arr, $stochastic["SlowD"]);
+		}else $k = $d = $this->blank_array(count($closes));
+		
+		return array("k" => $k, "d" => $d);
+	}
+	
+	private function get_trix($closes, $period, $period_signal){
+		$trix = Trader::trix($closes, $period);
+		if ($trix){
+			$trix = array_merge($this->blank_array(count($closes) - count($trix)), $trix);
+			$trix_signal = $this->get_sma($trix, $period_signal);
+		}else $trix = $trix_signal = $this->blank_array(count($closes));
+		
+		return array("trix" => $trix, "trix_signal" => $trix_signal);
+	}
+	
+	
+	
+	
 	
 	private function exec_curl($url, $datas = null, $is_post = false){
 		if ($is_post){

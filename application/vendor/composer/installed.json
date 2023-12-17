@@ -1,0 +1,58 @@
+{
+    "packages": [
+        {
+            "name": "lupecode/php-trader-native",
+            "version": "1.2.3",
+            "version_normalized": "1.2.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/LupeCode/phpTraderNative.git",
+                "reference": "f1db27c7611f854de0d7dcf2ba72254ef510b9f3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/LupeCode/phpTraderNative/zipball/f1db27c7611f854de0d7dcf2ba72254ef510b9f3",
+                "reference": "f1db27c7611f854de0d7dcf2ba72254ef510b9f3",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.0.0"
+            },
+            "require-dev": {
+                "codacy/coverage": "~1.4",
+                "ext-trader": ">=0.4.1",
+                "phpmetrics/phpmetrics": "~2.3",
+                "phpunit/phpunit": "~6.0"
+            },
+            "time": "2021-10-28T14:31:11+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "LupeCode\\phpTraderNative\\": "source/",
+                    "LupeCode\\phpTraderNativeTest\\": "tests/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Joshua Lopez",
+                    "email": "joshua@lupecode.com",
+                    "homepage": "http://github.com/jb-lopez",
+                    "role": "Developer"
+                }
+            ],
+            "description": "An native version of the PHP Trader extension.",
+            "support": {
+                "issues": "https://github.com/LupeCode/phpTraderNative/issues",
+                "source": "https://github.com/LupeCode/phpTraderNative/tree/1.2.3"
+            },
+            "install-path": "../lupecode/php-trader-native"
+        }
+    ],
+    "dev": true,
+    "dev-package-names": []
+}

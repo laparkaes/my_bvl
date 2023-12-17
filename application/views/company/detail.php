@@ -1,6 +1,6 @@
 <div class="pagetitle mb-3">
 	<div class="d-flex justify-content-between">
-		<h1><?= $company->companyName ?></h1>
+		<h1><?= $company->companyName ?> <i class="bi bi-star-fill ic_fav_control ic_fav_<?= $company->company_id ?>" value="<?= $company->company_id ?>"></i></h1>
 		<h1>[<?= $company->stock ?>] [<?= $company->sector->sectorDescription ?>]</h1>
 	</div>
 </div>
