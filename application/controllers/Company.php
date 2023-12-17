@@ -49,11 +49,71 @@ class Company extends CI_Controller {
 		$memories = $this->gm->filter("memory", ["companyName" => $company->companyName], null, null, [["date", "desc"]]);
 		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
 		
-		print_r($company); echo "<br/><br/>";
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => $company->stock,
+			"sector" => "",
+			"today" => false,
+		];
 		
-		print_r($memories); echo "<br/><br/>";
+		$offers = ["buy" => 0, "sell" => 0];
+		$last_stock = $this->exec_curl("https://dataondemand.bvl.com.pe/v1/stock-quote/market", $data, true);
+		if ($last_stock){
+			$last_stock = $last_stock->content[0];
+			$offers = ["buy" => $last_stock->buy, "sell" => $last_stock->sell];
+			
+			if (strtotime($last_stock->lastDate) > strtotime($stocks[0]->date)){
+				$last_stock = $this->convert_today_to_record($last_stock);
+				array_unshift($stocks, clone $last_stock);
+			}else $last_stock = clone $stocks[0];
+		}else $last_stock = clone $stocks[0];
 		
-		print_r($stocks); echo "<br/><br/>";
+		$last_stock->var_per = $this->get_var_per($last_stock);
+		foreach($stocks as $s) $s->var_per = $this->get_var_per($s);
+		
+		$data = [
+			"company" => $company,
+			"memories" => $memories,
+			"offers" => $offers,
+			"last_stock" => $last_stock,
+			"stocks" => $stocks,
+			"main" => "company/detail",
+		];
+		$this->load->view('layout', $data);
+	}
+	
+	private function get_var_per($stock){
+		if ($stock->close and $stock->yesterdayClose){
+			$value = ($stock->close - $stock->yesterdayClose) * 100 / $stock->yesterdayClose;
+			switch(true){
+				case ($value > 0): $ic = "+"; $bi = "up"; $color = "success"; break;
+				case ($value == 0): $ic = ""; $bi = ""; $color = ""; break;
+				case ($value < 0): $ic = "-"; $bi = "down"; $color = "danger"; break;
+			}	
+		}else{$ic = ""; $bi = ""; $color = ""; $value = 0;}
+		
+		
+		return ["ic" => $ic, "bi" => $bi, "color" => $color, "value" => number_format(abs($value), 2)];
+	}
+	
+	private function convert_today_to_record($today){
+		$record = new stdClass;
+		$record->stock_id = 0;
+		$record->nemonico = $today->nemonico;
+		$record->date = date("Y-m-d", strtotime($today->lastDate));
+		$record->open = $today->opening;
+		$record->close = $today->last;
+		$record->high = $today->maximun;
+		$record->low = $today->minimun;
+		$record->average = 0;//no use data
+		$record->quantityNegotiated = $today->negotiatedQuantity;
+		$record->solAmountNegotiated = $today->negotiatedNationalAmount;
+		$record->dollarAmountNegotiated = ($today->currency === "S/") ? $today->negotiatedAmount / 3.8 : $today->negotiatedAmount;
+		$record->yesterday = $today->previousDate;
+		$record->yesterdayClose = $today->previous;
+		$record->currencySymbol = $today->currency;
+		
+		return $record;
 	}
 	
 	public function update_reg_qty(){
