@@ -140,12 +140,12 @@
 								if ($s->close){
 									$dates[] = $s->date;
 									$candles[] = [$s->open, $s->close, $s->low, $s->high, $s->quantityNegotiated];
-									$volumes[] = [$i, $s->quantityNegotiated, ($s->open >= $s->close) ? 1 : -1];
-									$sma_5[] = $s->sma_5; 
-									$sma_20[] = $s->sma_20; 
-									$sma_60[] = $s->sma_60; 
-									$sma_120[] = $s->sma_120; 
-									$sma_200[] = $s->sma_200;
+									$volumes[] = [$i, $s->quantityNegotiated];
+									$sma_5[] = ($s->sma_5 > 0) ? $s->sma_5 : null;
+									$sma_20[] = ($s->sma_20 > 0) ? $s->sma_20 : null;
+									$sma_60[] = ($s->sma_60 > 0) ? $s->sma_60 : null;
+									$sma_120[] = ($s->sma_120 > 0) ? $s->sma_120 : null;
+									$sma_200[] = ($s->sma_200 > 0) ? $s->sma_200 : null;
 								}
 								
 								$vp = $s->var_per;

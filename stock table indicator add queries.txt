@@ -1,1 +1,1 @@
-ALTER TABLE `stock` ADD `buy_signal` VARCHAR(200) NULL AFTER `last_year_max`, ADD `buy_signal_qty` INT NULL AFTER `buy_signal`, ADD `sell_signal` VARCHAR(200) NULL AFTER `buy_signal_qty`, ADD `sell_signal_qty` INT NULL AFTER `sell_signal`; 
+ALTER TABLE `stock` ADD `last_year_per` DOUBLE NULL DEFAULT NULL AFTER `last_year_max`; 
