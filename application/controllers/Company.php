@@ -65,6 +65,7 @@ class Company extends CI_Controller {
 			$offers = ["buy" => $last_stock->buy, "sell" => $last_stock->sell];
 			
 			if (strtotime($last_stock->lastDate) > strtotime($stocks[0]->date)){
+				//$this->update_stocks($code, $from = "", $to = "");
 				$last_stock = $this->convert_today_to_record($last_stock);
 				array_unshift($stocks, clone $last_stock);
 			}else $last_stock = clone $stocks[0];
@@ -99,7 +100,7 @@ class Company extends CI_Controller {
 	}
 	
 	private function convert_today_to_record($today){
-		$record = new stdClass;
+		$record = $this->gm->structure("stock");
 		$record->stock_id = 0;
 		$record->nemonico = $today->nemonico;
 		$record->date = date("Y-m-d", strtotime($today->lastDate));
@@ -292,99 +293,41 @@ class Company extends CI_Controller {
 				//macd
 				if (0 < $i){
 					if (($macd_div[$i] < 0) and ($macd_div[$i-1] < $macd_div[$i])) $buy_signals[] = "macd";
-					elseif (($macd_div[$i] > 0) and ($macd_div[$i-1] > $macd_div[$i])) $sell_signals[] = "macd";	
+					elseif (($macd_div[$i] > 0) and ($macd_div[$i-1] > $macd_div[$i])) $sell_signals[] = "macd";
 				}
 				
-				//#28a745 초록 / 구매
-				//#dc3545 빨강 / 판매
-				
 				//mfi
-				/*
-					case ($mfi[$i] < 20):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($mfi[$i] > 80):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if ($mfi[$i] < 20) $buy_signals[] = "mfi";
+				elseif ($mfi[$i] > 80) $sell_signals[] = "mfi";
 				
 				//mom
-				/*
-					case ($this->is_golden_cross($mom, $mom_signal, $i)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($this->is_dead_cross($mom, $mom_signal, $i)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if ($this->is_golden_cross($mom, $mom_sig, $i)) $buy_signals[] = "mom";
+				elseif ($this->is_dead_cross($mom, $mom_sig, $i)) $sell_signals[] = "mom";
 				
 				//psar
-				/*
-					case (($pbsar[$i-1] >= $closes[$i-1]) and ($pbsar[$i] < $closes[$i])):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case (($pbsar[$i-1] <= $closes[$i-1]) and ($pbsar[$i] > $closes[$i])):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
-				
+				if ($i > 0){
+					if (($psar[$i-1] >= $closes[$i-1]) and ($psar[$i] < $closes[$i])) $buy_signals[] = "psar";
+					elseif (($psar[$i-1] <= $closes[$i-1]) and ($psar[$i] > $closes[$i])) $sell_signals[] = "psar";
+				}				
 				//ppo
-				/*
-					case ($ppo[$i] < 0):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($ppo[$i] > 0):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if ($ppo[$i] < 0) $buy_signals[] = "ppo";
+				elseif ($ppo[$i] > 0) $sell_signals[] = "ppo";
 				
 				//pch
-				/*
-					case ($pch_l[$i] >= $closes[$i]):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($pch_u[$i] <= $closes[$i]):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if ($pch_l[$i] >= $closes[$i]) $buy_signals[] = "pch";
+				elseif ($pch_u[$i] <= $closes[$i]) $sell_signals[] = "pch";
 				
 				//rsi
-				/*
-					case ($rsi[$i] < 30):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($rsi[$i] > 70):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if ($rsi[$i] < 30) $buy_signals[] = "rsi";
+				elseif ($rsi[$i] > 70) $sell_signals[] = "rsi";
 				
 				//sto
-				/*
-					case (($sto_k[$i] < 20) and ($sto_d[$i] < 20)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case (($sto_k[$i] > 80) and ($sto_d[$i] > 80)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
+				if (($sto_k[$i] < 20) and ($sto_d[$i] < 20)) $buy_signals[] = "sto";
+				elseif (($sto_k[$i] > 80) and ($sto_d[$i] > 80)) $sell_signals[] = "sto";
 				
 				//trix
-				/*
-					case ($this->is_golden_cross($trix, $trix_sig, $i)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
-						break;
-					case ($this->is_dead_cross($trix, $trix_sig, $i)):
-						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
-						break;
-				*/
-				
-				//http://localhost/my_bvl/company/update_indicators/18
-				
-				
-				
-				echo $s->date."<br/>";
-				print_r($buy_signals); echo "<br/>";
-				print_r($sell_signals); echo "<br/><br/>";
+				if ($this->is_golden_cross($trix, $trix_sig, $i)) $buy_signals[] = "trix";
+				elseif ($this->is_dead_cross($trix, $trix_sig, $i)) $sell_signals[] = "trix";
 				
 				$indicators[] = [
 					"stock_id" => $s->stock_id,
@@ -428,20 +371,17 @@ class Company extends CI_Controller {
 					"trix_sig" => $trix_sig[$i],
 					"last_year_min" => $last_year_min[$i],
 					"last_year_max" => $last_year_max[$i],
+					"buy_signal" => implode(",", $buy_signals),
+					"buy_signal_qty" => count($buy_signals),
+					"sell_signal" => implode(",", $sell_signals),
+					"sell_signal_qty" => count($sell_signals),
 				];
 			}
 		}
 		
 		//print_r($indicators);  echo "<br/><br/>";
-		//$this->gm->update_multi("stock", $indicators, "stock_id");
+		if ($indicators) $this->gm->update_multi("stock", $indicators, "stock_id");
 		echo "Actualizacion de indicadores finalizada.";
-		
-		/*
-		echo count($negos); echo "<br/><br/>";
-		echo count($last_year_max); echo "<br/><br/>";
-		print_r($last_year_max);
-		*/
-		
 	}
 	
 	private function blank_array($count){
@@ -672,7 +612,40 @@ class Company extends CI_Controller {
 	private function is_dead_cross($ind1, $ind2, $i){
 		if ($i > 0) return (($ind1[$i - 1] >= $ind2[$i - 1]) and ($ind1[$i] < $ind2[$i]));
 		else return false;
+	}
+	
+	private function update_stocks($code, $from = "", $to = ""){
+		if (!$from) $from = "2000-01-01";
+		if (!$to) $to = date('Y-m-d');
 		
+		$code = str_replace("/", "%2F", $code);
+		$from_history = date('Y-m-d', strtotime('-1 day', strtotime($from)));
+		$to_history = date('Y-m-d', strtotime('+1 day', strtotime($to)));
+		echo "search ".$code.", ".$from_history." ~ ".$to_history."<br/>";
+		
+		$datas = [];
+		$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$code."?startDate=".$from_history."&endDate=".$to_history;
+		$res = $this->exec_curl($url, null, false);
+		if ($res) foreach($res as $item){
+			if ($item->quantityNegotiated or $item->close){
+				if (!trim($item->currencySymbol)) $item->currencySymbol = "S/"; else $item->currencySymbol = "US$";
+				$datas[] = $item;
+			}
+		}
+		
+		usort($datas, function($a, $b){ return $a->date < $b->date; });
+		
+		//get last date
+		$last_stock = $this->gm->filter("stock", ["nemonico" => $code], null, null, [["date", "desc"]], 1, 0);
+		if ($last_stock) $last_date = $last_stock[0]->date; else $last_date = "1999-01-01";
+		$last_date = strtotime($last_date);
+		
+		foreach($datas as $d){
+			if ($last_date < strtotime($d->date)){
+				unset($d->id);
+				$this->gm->insert("stock", $d);
+			}
+		}
 	}
 	
 	private function exec_curl($url, $datas = null, $is_post = false){

@@ -20,9 +20,7 @@
 							</ul>
 						</div>
 					</div>
-					<div id="chart_block" style="max-height: 300px; overflow: hidden;">
-						<?php print_r($stocks); ?>
-					</div>
+					<div id="chart_block" style="min-height: 500px;"></div>
 				</div>
 			</div>
 		</div>
@@ -129,7 +127,29 @@
 							</tr>
 						</thead>
 						<tbody>
-							<?php foreach($stocks as $s){ $vp = $s->var_per; ?>
+							<?php
+							$dates = $candles = $volumes = [];
+							$sma_5 = $sma_20 = $sma_60 = $sma_120 = $sma_200 = [];
+							foreach($stocks as $i => $s){ 
+								$s->open = $s->open ? $s->open : null;
+								$s->close = $s->close ? $s->close : null;
+								$s->low = $s->low ? $s->low : null;
+								$s->high = $s->high ? $s->high : null;
+								$s->quantityNegotiated = $s->quantityNegotiated ? $s->quantityNegotiated : null;
+							
+								if ($s->close){
+									$dates[] = $s->date;
+									$candles[] = [$s->open, $s->close, $s->low, $s->high, $s->quantityNegotiated];
+									$volumes[] = [$i, $s->quantityNegotiated, ($s->open >= $s->close) ? 1 : -1];
+									$sma_5[] = $s->sma_5; 
+									$sma_20[] = $s->sma_20; 
+									$sma_60[] = $s->sma_60; 
+									$sma_120[] = $s->sma_120; 
+									$sma_200[] = $s->sma_200;
+								}
+								
+								$vp = $s->var_per;
+							?>
 							<tr>
 								<td><?= $s->date ?></td>
 								<td><?= ($s->open > 0) ? $s->currencySymbol." ".$s->open : "" ?></td>
@@ -153,3 +173,13 @@
 		</div>
 	</div>
 </section>
+<div class="d-none">
+	<div id="ch_dates"><?= json_encode(array_reverse($dates)) ?></div>
+	<div id="ch_candles"><?= json_encode(array_reverse($candles)) ?></div>
+	<div id="ch_volumes"><?= json_encode(array_reverse($volumes)) ?></div>
+	<div id="ch_sma_5"><?= json_encode(array_reverse($sma_5)) ?></div>
+	<div id="ch_sma_20"><?= json_encode(array_reverse($sma_20)) ?></div>
+	<div id="ch_sma_60"><?= json_encode(array_reverse($sma_60)) ?></div>
+	<div id="ch_sma_120"><?= json_encode(array_reverse($sma_120)) ?></div>
+	<div id="ch_sma_200"><?= json_encode(array_reverse($sma_200)) ?></div>
+</div>

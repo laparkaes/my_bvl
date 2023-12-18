@@ -162,7 +162,7 @@ class Home extends CI_Controller {
 			echo "<br/>";
 		}
 		
-		echo $code." - Fin de actualizacion de stocks.<br/>";
+		echo $code." - Fin de actualizacion de stocks.<br/><br/>";
 	}
 	
 	public function update_company(){
