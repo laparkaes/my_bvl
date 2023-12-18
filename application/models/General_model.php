@@ -90,6 +90,10 @@ class General_model extends CI_Model{
 		return $this->db->update($tablename, $data);
 	}
 	
+	function update_multi($tablename, $data, $field){ 
+		return $this->db->update_batch($tablename, $data, $field);
+	}
+	
 	function delete($tablename, $filter){
 		$this->db->where($filter);
 		return $this->db->delete($tablename);
@@ -231,10 +235,6 @@ class General_model extends CI_Model{
 	function update_($tablename, $field, $id, $data){ 
 		$this->db->where($field, $id);
 		return $this->db->update($tablename, $data);
-	}
-	
-	function update_multi($tablename, $data, $field){ 
-		return $this->db->update_batch($tablename, $data, $field);
 	}
 	
 	function delete_multi($tablename, $field, $values){

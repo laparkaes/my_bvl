@@ -170,30 +170,20 @@ class Company extends CI_Controller {
 		}
 		
 		$dates = $closes = $highs = $lows = $negos = [];
-		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "asc"]]);
+		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock, "close > " => 0], null, null, [["date", "asc"]]);
 		foreach($stocks as $s){
-			if ($s->close){
-				$dates[] = $s->date;
-				$closes[] = $s->close;
-				$highs[] = $s->high;
-				$lows[] = $s->low;
-				$negos[] = $s->quantityNegotiated;
-			}
+			$dates[] = $s->date;
+			$closes[] = $s->close;
+			$highs[] = $s->high;
+			$lows[] = $s->low;
+			$negos[] = $s->quantityNegotiated;
 		}
 		
-		/*
-		print_r($dates); echo "<br/><br/>";
-		print_r($closes); echo "<br/><br/>";
-		print_r($highs); echo "<br/><br/>";
-		print_r($lows); echo "<br/><br/>";
-		print_r($negos); echo "<br/><br/>";
-		*/
-		
 		//adx
-		$adx = $this->get_adx($highs, $lows, $closes, 14);
-		$adx_pdi = $adx["pdi"];
-		$adx_mdi = $adx["mdi"];
-		$adx = $adx["adx"];
+		$adx_arr = $this->get_adx($highs, $lows, $closes, 14);
+		$adx = $adx_arr["adx"];
+		$adx_pdi = $adx_arr["pdi"];
+		$adx_mdi = $adx_arr["mdi"];
 		
 		//atr
 		$atr = $this->get_atr($highs, $lows, $closes, 14);
@@ -224,9 +214,234 @@ class Company extends CI_Controller {
 		$ich_a = $ich["span_a"];
 		$ich_b = $ich["span_b"];
 		
+		//macd
+		$macd_arr = $this->get_macd($closes, 12, 26, 9);
+		$macd = $macd_arr["macd"];
+		$macd_sig = $macd_arr["macd_sig"];
+		$macd_div = $macd_arr["macd_div"];
+		
+		//mfi
+		$mfi = $this->get_mfi($highs, $lows, $closes, $negos, 14);
+		
+		//mom
+		$mom_arr = $this->get_mom($closes, 10, 9);
+		$mom = $mom_arr["mom"];
+		$mom_sig = $mom_arr["mom_signal"];
+		
+		//parabolic sar
+		$psar = $this->get_parabolic_sar($highs, $lows, 0.02, 0.2);
+		
+		//price channel
+		$pch = $this->get_price_channel($highs, $lows, 20);
+		$pch_u = $pch["uppers"];
+		$pch_l = $pch["lowers"];
+		
+		//ppo
+		$ppo = $this->get_ppo($closes, 9, 20, true);
+		
+		//rsi
+		$rsi = $this->get_rsi($closes, 20);
+		
+		//sma
+		$sma_5 = $this->get_sma($closes, 5);
+		$sma_20 = $this->get_sma($closes, 20);
+		$sma_60 = $this->get_sma($closes, 60);
+		$sma_120 = $this->get_sma($closes, 120);
+		$sma_200 = $this->get_sma($closes, 200);
+		
+		//stochastic
+		$sto = $this->get_stochastic($highs, $lows, $closes, 6, 10, true, 6, true);
+		$sto_k = $sto["k"];
+		$sto_d = $sto["d"];
+		
+		//trix
+		$trix_arr = $this->get_trix($closes, 12, 9);
+		$trix = $trix_arr["trix"];
+		$trix_sig = $trix_arr["trix_signal"];
+		
+		//last_year
+		$last_year = $this->get_last_year($dates, $closes);
+		$last_year_min = $last_year["min"];
+		$last_year_max = $last_year["max"];
+		
+		$indicators = [];
+		foreach($stocks as $i => $s){
+			if (!$s->is_calculated){
+				
+				$buy_signals = [];
+				$sell_signals = [];
+				
+				//adx
+				if (($adx[$i] > $adx_pdi[$i]) and ($adx_mdi[$i] > $adx_pdi[$i])) $buy_signals[] = "adx";
+				elseif (($adx[$i] > $adx_mdi[$i]) and ($adx_pdi[$i] > $adx_mdi[$i])) $sell_signals[] = "adx";
+				
+				//atr => solo da que tanto varia precio. no da senial de compra o venta
+				
+				//bb
+				if ((0 < $bb_l[$i]) and ($bb_l[$i] >= $closes[$i])) $buy_signals[] = "bb";
+				elseif ((0 < $bb_u[$i]) and ($bb_u[$i] <= $closes[$i])) $sell_signals[] = "bb";
+				
+				//cci
+				if ($cci[$i] < -100) $buy_signals[] = "cci";
+				elseif ($cci[$i] > 100) $sell_signals[] = "cci";
+				
+				//env
+				if ($env_l[$i] >= $closes[$i]) $buy_signals[] = "env";
+				elseif ($env_u[$i] <= $closes[$i]) $sell_signals[] = "env";
+				
+				//macd
+				if (0 < $i){
+					if (($macd_div[$i] < 0) and ($macd_div[$i-1] < $macd_div[$i])) $buy_signals[] = "macd";
+					elseif (($macd_div[$i] > 0) and ($macd_div[$i-1] > $macd_div[$i])) $sell_signals[] = "macd";	
+				}
+				
+				//#28a745 초록 / 구매
+				//#dc3545 빨강 / 판매
+				
+				//mfi
+				/*
+					case ($mfi[$i] < 20):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($mfi[$i] > 80):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//mom
+				/*
+					case ($this->is_golden_cross($mom, $mom_signal, $i)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($this->is_dead_cross($mom, $mom_signal, $i)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//psar
+				/*
+					case (($pbsar[$i-1] >= $closes[$i-1]) and ($pbsar[$i] < $closes[$i])):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case (($pbsar[$i-1] <= $closes[$i-1]) and ($pbsar[$i] > $closes[$i])):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//ppo
+				/*
+					case ($ppo[$i] < 0):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($ppo[$i] > 0):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//pch
+				/*
+					case ($pch_l[$i] >= $closes[$i]):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($pch_u[$i] <= $closes[$i]):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//rsi
+				/*
+					case ($rsi[$i] < 30):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($rsi[$i] > 70):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//sto
+				/*
+					case (($sto_k[$i] < 20) and ($sto_d[$i] < 20)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case (($sto_k[$i] > 80) and ($sto_d[$i] > 80)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//trix
+				/*
+					case ($this->is_golden_cross($trix, $trix_sig, $i)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#28a74550", "strokeDashArray" => 0));
+						break;
+					case ($this->is_dead_cross($trix, $trix_sig, $i)):
+						array_push($annt, array("x" => $dates[$i], "borderColor" => "#dc354550", "strokeDashArray" => 0));
+						break;
+				*/
+				
+				//http://localhost/my_bvl/company/update_indicators/18
+				
+				
+				
+				echo $s->date."<br/>";
+				print_r($buy_signals); echo "<br/>";
+				print_r($sell_signals); echo "<br/><br/>";
+				
+				$indicators[] = [
+					"stock_id" => $s->stock_id,
+					"is_calculated" => true,
+					"adx" => $adx[$i],
+					"adx_pdi" => $adx_pdi[$i],
+					"adx_mdi" => $adx_mdi[$i],
+					"atr" => $atr[$i],
+					"bb_u" => $bb_u[$i],
+					"bb_m" => $bb_m[$i],
+					"bb_l" => $bb_l[$i],
+					"cci" => $cci[$i],
+					"ema_5" => $ema_5[$i],
+					"ema_20" => $ema_20[$i],
+					"ema_60" => $ema_60[$i],
+					"ema_120" => $ema_120[$i],
+					"ema_200" => $ema_200[$i],
+					"env_u" => $env_u[$i],
+					"env_l" => $env_l[$i],
+					"ich_a" => $ich_a[$i],
+					"ich_b" => $ich_b[$i],
+					"macd" => $macd[$i],
+					"macd_sig" => $macd_sig[$i],
+					"macd_div" => $macd_div[$i],
+					"mfi" => $mfi[$i],
+					"mom" => $mom[$i],
+					"mom_sig" => $mom_sig[$i],
+					"psar" => $psar[$i],
+					"pch_u" => $pch_u[$i],
+					"pch_l" => $pch_l[$i],
+					"ppo" => $ppo[$i],
+					"rsi" => $rsi[$i],
+					"sma_5" => $sma_5[$i],
+					"sma_20" => $sma_20[$i],
+					"sma_60" => $sma_60[$i],
+					"sma_120" => $sma_120[$i],
+					"sma_200" => $sma_200[$i],
+					"sto_k" => $sto_k[$i],
+					"sto_d" => $sto_d[$i],
+					"trix" => $trix[$i],
+					"trix_sig" => $trix_sig[$i],
+					"last_year_min" => $last_year_min[$i],
+					"last_year_max" => $last_year_max[$i],
+				];
+			}
+		}
+		
+		//print_r($indicators);  echo "<br/><br/>";
+		//$this->gm->update_multi("stock", $indicators, "stock_id");
+		echo "Actualizacion de indicadores finalizada.";
+		
+		/*
 		echo count($negos); echo "<br/><br/>";
-		echo count($ich_a); echo "<br/><br/>";
-		print_r($ich_a);
+		echo count($last_year_max); echo "<br/><br/>";
+		print_r($last_year_max);
+		*/
+		
 	}
 	
 	private function blank_array($count){
@@ -341,7 +556,7 @@ class Company extends CI_Controller {
 		return ["span_a" => $span_a, "span_b" => $span_b];
 	}
 	
-	private function get_macd($closes, $fast_period, $slow_period, $signal_period){
+	private function get_macd($closes, $fast_period = 12, $slow_period = 26, $signal_period = 9){
 		$macd_general = Trader::macd($closes, $fast_period, $slow_period, $signal_period);
 		if ($macd_general){
 			$arr = $this->blank_array(count($closes) - count($macd_general["MACD"]));
@@ -350,39 +565,32 @@ class Company extends CI_Controller {
 			$macd_divergence = array_merge($arr, $macd_general["MACDHist"]);
 		}else $macd = $macd_signal = $macd_divergence = $this->blank_array(count($closes));
 		
-		return array("macd" => $macd, "macd_sig" => $macd_signal, "macd_div" => $macd_divergence);
+		return ["macd" => $macd, "macd_sig" => $macd_signal, "macd_div" => $macd_divergence];
 	}
 	
-	private function get_mfi($highs, $lows, $closes, $negos, $period){
+	private function get_mfi($highs, $lows, $closes, $negos, $period = 14){
 		$mfi = Trader::mfi($highs, $lows, $closes, $negos, $period);
 		if ($mfi) return array_merge($this->blank_array(count($closes) - count($mfi)), $mfi);
 		else return $this->blank_array(count($closes));
 	}
 	
-	private function get_mom($closes, $period, $period_signal){
+	private function get_mom($closes, $period = 10, $period_signal = 9){
 		$mom = Trader::mom($closes, $period);
 		if ($mom){
 			$mom = array_merge($this->blank_array(count($closes) - count($mom)), $mom);
 			$mom_signal = $this->get_sma($mom, $period_signal);
 		}else $mom = $mom_signal = $this->blank_array(count($closes));
 		
-		return array("mom" => $mom, "mom_signal" => $mom_signal);
+		return ["mom" => $mom, "mom_signal" => $mom_signal];
 	}
 	
-	private function get_parabolic_sar($highs, $lows, $acceleration, $maximum){
+	private function get_parabolic_sar($highs, $lows, $acceleration = 0.02, $maximum = 0.2){
 		$parabolic_sar = Trader::sar($highs, $lows, $acceleration, $maximum);
 		if ($parabolic_sar) return array_merge($this->blank_array(count($highs) - count($parabolic_sar)), $parabolic_sar);
 		else return $this->blank_array(count($highs));
 	}
 	
-	private function get_ppo($closes, $fast_period, $slow_period, $is_sma){
-		if ($is_sma) $ma = MovingAverageType::SMA; else $ma = MovingAverageType::EMA;
-		$ppo = Trader::ppo($closes, $fast_period, $slow_period, $ma);
-		if ($ppo) return array_merge($this->blank_array(count($closes) - count($ppo)), $ppo);
-		else return $this->blank_array(count($closes));
-	}
-	
-	private function get_price_channel($highs, $lows, $period){
+	private function get_price_channel($highs, $lows, $period = 20){
 		$uppers = Trader::max($highs, $period);
 		$lowers = Trader::min($lows, $period);
 		if ($uppers){
@@ -391,10 +599,17 @@ class Company extends CI_Controller {
 			$lowers = array_merge($arr, $lowers);
 		}else $uppers = $lowers = $this->blank_array(count($highs));
 		
-		return array("uppers" => $uppers, "lowers" => $lowers);
+		return ["uppers" => $uppers, "lowers" => $lowers];
 	}
 	
-	private function get_rsi($closes, $period){
+	private function get_ppo($closes, $fast_period = 9, $slow_period = 20, $is_sma = true){
+		if ($is_sma) $ma = MovingAverageType::SMA; else $ma = MovingAverageType::EMA;
+		$ppo = Trader::ppo($closes, $fast_period, $slow_period, $ma);
+		if ($ppo) return array_merge($this->blank_array(count($closes) - count($ppo)), $ppo);
+		else return $this->blank_array(count($closes));
+	}
+	
+	private function get_rsi($closes, $period = 20){
 		$rsi = Trader::rsi($closes, $period);
 		if ($rsi) return array_merge($this->blank_array(count($closes) - count($rsi)), $rsi);
 		else return $this->blank_array(count($closes));
@@ -406,7 +621,7 @@ class Company extends CI_Controller {
 		else return $this->blank_array(count($closes));
 	}
 	
-	private function get_stochastic($highs, $lows, $closes, $fk_period, $sk_period, $is_k_sma, $d_period, $is_d_sma){
+	private function get_stochastic($highs, $lows, $closes, $fk_period = 6, $sk_period = 10, $is_k_sma = true, $d_period = 6, $is_d_sma = true){
 		if ($is_k_sma) $k_ma = MovingAverageType::SMA; else $k_ma = MovingAverageType::EMA;
 		if ($is_d_sma) $d_ma = MovingAverageType::SMA; else $d_ma = MovingAverageType::EMA;
 		$stochastic =  Trader::stoch($highs, $lows, $closes, $fk_period, $sk_period, $k_ma, $d_period, $d_ma);
@@ -416,22 +631,49 @@ class Company extends CI_Controller {
 			$d = array_merge($arr, $stochastic["SlowD"]);
 		}else $k = $d = $this->blank_array(count($closes));
 		
-		return array("k" => $k, "d" => $d);
+		return ["k" => $k, "d" => $d];
 	}
 	
-	private function get_trix($closes, $period, $period_signal){
+	private function get_trix($closes, $period = 12, $period_signal = 9){
 		$trix = Trader::trix($closes, $period);
 		if ($trix){
 			$trix = array_merge($this->blank_array(count($closes) - count($trix)), $trix);
 			$trix_signal = $this->get_sma($trix, $period_signal);
 		}else $trix = $trix_signal = $this->blank_array(count($closes));
 		
-		return array("trix" => $trix, "trix_signal" => $trix_signal);
+		return ["trix" => $trix, "trix_signal" => $trix_signal];
 	}
 	
+	private function get_last_year($dates, $closes){
+		$mins = $maxs = [];
+		foreach($closes as $i => $close){
+			$min = $max = $close;
+			
+			$j = $i;//start from
+			$limit = strtotime(date('Y-m-d', strtotime($dates[$i].' -1 year')));//limit date to last year
+			while((0 <= $j) and ($limit <= strtotime($dates[$j]))){
+				if ($max < $closes[$j]) $max = $closes[$j];
+				if ($min > $closes[$j]) $min = $closes[$j];
+				$j--;
+			}
+			
+			$mins[$i] = $min;
+			$maxs[$i] = $max;
+		}
+		
+		return ["min" => $mins, "max" => $maxs];
+	}	
 	
+	private function is_golden_cross($ind1, $ind2, $i){
+		if ($i > 0) return (($ind1[$i - 1] <= $ind2[$i - 1]) and ($ind1[$i] > $ind2[$i]));
+		else return false;
+	}
 	
-	
+	private function is_dead_cross($ind1, $ind2, $i){
+		if ($i > 0) return (($ind1[$i - 1] >= $ind2[$i - 1]) and ($ind1[$i] < $ind2[$i]));
+		else return false;
+		
+	}
 	
 	private function exec_curl($url, $datas = null, $is_post = false){
 		if ($is_post){
