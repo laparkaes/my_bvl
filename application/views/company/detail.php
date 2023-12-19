@@ -14,25 +14,25 @@
 						<div>
 							<div class="dropdown">
 								<select class="form-select form-select-sm d-inline" id="chart_data_qty" style="width: 100px;">
-									<option value="-300">300</option>
+									<option value="-100">100</option>
+									<option value="-300" selected>300</option>
 									<option value="-600">600</option>
 									<option value="-1000">1000</option>
 									<option value="-9999">Todos</option>
 								</select>
 								<a class="btn btn-success btn-sm" type="button" href="<?= base_url() ?>company/update_indicators/<?= $company->company_id ?>" target="_blank">Actualizar Indicadores</a>
-								<button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Indicador</button>
+								<button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Elegir</button>
 								<ul class="dropdown-menu">
-									<li><button class="dropdown-item btn_chart ch_price active" type="button" value="ch_price_sma">Precio & SMA</button></li>
-									<li><button class="dropdown-item btn_chart ch_price" type="button" value="ch_price_ema">Precio & EMA</button></li>
-									<li><button class="dropdown-item btn_chart" type="button" value="-1000">1000</button></li>
-									<li><button class="dropdown-item btn_chart" type="button" value="-9999">Todos</button></li>
+									<li><button class="dropdown-item btn_chart active" type="button" value="ch_price_sma">Precio & SMA</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="ch_price_ema">Precio & EMA</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="ch_price_ly">Precio & Ult. Año</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="ch_indicators">Indicadores</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="ch_bands">Bandas</button></li>
 								</ul>
 							</div>
 						</div>
 					</div>
-					<div id="chart_price_block">
-						<div id="chart_price"></div>
-					</div>
+					<div id="chart_block"></div>
 				</div>
 			</div>
 		</div>
@@ -140,9 +140,26 @@
 						</thead>
 						<tbody>
 							<?php
-							$dates = $candles = $volumes = [];
+							$dates = $prices = $candles = $volumes = [];
 							$sma_5 = $sma_20 = $sma_60 = $sma_120 = $sma_200 = [];
 							$ema_5 = $ema_20 = $ema_60 = $ema_120 = $ema_200 = [];
+							$last_year_min = $last_year_max = $last_year_per = [];
+							$buy_sigs = $sell_sigs = [];
+							$adx = $adx_pdi = $adx_mdi = [];
+							$atr = [];
+							$bb_u = []; $bb_m = []; $bb_l = [];
+							$cci = [];
+							$env_u = []; $env_l = [];
+							$ich_a = []; $ich_b = [];
+							$macd = []; $macd_sig = []; $macd_div = [];
+							$mfi = [];
+							$mom = []; $mom_sig = [];
+							$psar = [];
+							$pch_u = []; $pch_l = [];
+							$ppo = [];
+							$rsi = [];
+							$sto_k = []; $sto_d = [];
+							$trix = []; $trix_sig = [];
 							foreach($stocks as $i => $s){ 
 								$s->open = $s->open ? $s->open : null;
 								$s->close = $s->close ? $s->close : null;
@@ -152,6 +169,7 @@
 							
 								if ($s->close){
 									$dates[] = $s->date;
+									$prices[] = $s->close;
 									$candles[] = [$s->open, $s->close, $s->low, $s->high, $s->quantityNegotiated];
 									$volumes[] = [$i, $s->quantityNegotiated];
 									$sma_5[] = ($s->sma_5 > 0) ? $s->sma_5 : null;
@@ -164,6 +182,26 @@
 									$ema_60[] = ($s->ema_60 > 0) ? $s->ema_60 : null;
 									$ema_120[] = ($s->ema_120 > 0) ? $s->ema_120 : null;
 									$ema_200[] = ($s->ema_200 > 0) ? $s->ema_200 : null;
+									$last_year_min[] = $s->last_year_min;
+									$last_year_max[] = $s->last_year_max;
+									$last_year_per[] = $s->last_year_per;
+									$buy_sigs[] = $s->buy_signal_qty;
+									$sell_sigs[] = $s->sell_signal_qty;
+									$adx[] = $s->adx; $adx_pdi[] = $s->adx_pdi; $adx_mdi[] = $s->adx_mdi;
+									$atr[] = $s->atr;
+									$bb_u[] = $s->bb_u; $bb_m[] = $s->bb_m; $bb_l[] = $s->bb_l;
+									$cci[] = $s->cci;
+									$env_u[] = $s->env_u; $env_l[] = $s->env_l;
+									$ich_a[] = $s->ich_a; $ich_b[] = $s->ich_b;
+									$macd[] = $s->macd; $macd_sig[] = $s->macd_sig; $macd_div[] = $s->macd_div;
+									$mfi[] = $s->mfi;
+									$mom[] = $s->mom; $mom_sig[] = $s->mom_sig;
+									$psar[] = $s->psar;
+									$pch_u[] = $s->pch_u; $pch_l[] = $s->pch_l;
+									$ppo[] = $s->ppo;
+									$rsi[] = $s->rsi;
+									$sto_k[] = $s->sto_k; $sto_d[] = $s->sto_d;
+									$trix[] = $s->trix; $trix_sig[] = $s->trix_sig;
 								}
 								
 								$vp = $s->var_per;
@@ -193,6 +231,7 @@
 </section>
 <div class="d-none">
 	<div id="ch_dates"><?= json_encode(array_reverse($dates)) ?></div>
+	<div id="ch_prices"><?= json_encode(array_reverse($prices)) ?></div>
 	<div id="ch_candles"><?= json_encode(array_reverse($candles)) ?></div>
 	<div id="ch_volumes"><?= json_encode(array_reverse($volumes)) ?></div>
 	<div id="ch_sma_5"><?= json_encode(array_reverse($sma_5)) ?></div>
@@ -205,4 +244,36 @@
 	<div id="ch_ema_60"><?= json_encode(array_reverse($ema_60)) ?></div>
 	<div id="ch_ema_120"><?= json_encode(array_reverse($ema_120)) ?></div>
 	<div id="ch_ema_200"><?= json_encode(array_reverse($ema_200)) ?></div>
+	<div id="ch_last_year_min"><?= json_encode(array_reverse($last_year_min)) ?></div>
+	<div id="ch_last_year_max"><?= json_encode(array_reverse($last_year_max)) ?></div>
+	<div id="ch_last_year_per"><?= json_encode(array_reverse($last_year_per)) ?></div>
+	<div id="ch_buy_sigs"><?= json_encode(array_reverse($buy_sigs)) ?></div>
+	<div id="ch_sell_sigs"><?= json_encode(array_reverse($sell_sigs)) ?></div>
+	<div id="ch_adx"><?= json_encode(array_reverse($adx)) ?></div>
+	<div id="ch_adx_pdi"><?= json_encode(array_reverse($adx_pdi)) ?></div>
+	<div id="ch_adx_mdi"><?= json_encode(array_reverse($adx_mdi)) ?></div>
+	<div id="ch_atr"><?= json_encode(array_reverse($atr)) ?></div>
+	<div id="ch_bb_u"><?= json_encode(array_reverse($bb_u)) ?></div>
+	<div id="ch_bb_m"><?= json_encode(array_reverse($bb_m)) ?></div>
+	<div id="ch_bb_l"><?= json_encode(array_reverse($bb_l)) ?></div>
+	<div id="ch_cci"><?= json_encode(array_reverse($cci)) ?></div>
+	<div id="ch_env_u"><?= json_encode(array_reverse($env_u)) ?></div>
+	<div id="ch_env_l"><?= json_encode(array_reverse($env_l)) ?></div>
+	<div id="ch_ich_a"><?= json_encode(array_reverse($ich_a)) ?></div>
+	<div id="ch_ich_b"><?= json_encode(array_reverse($ich_b)) ?></div>
+	<div id="ch_macd"><?= json_encode(array_reverse($macd)) ?></div>
+	<div id="ch_macd_sig"><?= json_encode(array_reverse($macd_sig)) ?></div>
+	<div id="ch_macd_div"><?= json_encode(array_reverse($macd_div)) ?></div>
+	<div id="ch_mfi"><?= json_encode(array_reverse($mfi)) ?></div>
+	<div id="ch_mom"><?= json_encode(array_reverse($mom)) ?></div>
+	<div id="ch_mom_sig"><?= json_encode(array_reverse($mom_sig)) ?></div>
+	<div id="ch_psar"><?= json_encode(array_reverse($psar)) ?></div>
+	<div id="ch_pch_u"><?= json_encode(array_reverse($pch_u)) ?></div>
+	<div id="ch_pch_l"><?= json_encode(array_reverse($pch_l)) ?></div>
+	<div id="ch_ppo"><?= json_encode(array_reverse($ppo)) ?></div>
+	<div id="ch_rsi"><?= json_encode(array_reverse($rsi)) ?></div>
+	<div id="ch_sto_k"><?= json_encode(array_reverse($sto_k)) ?></div>
+	<div id="ch_sto_d"><?= json_encode(array_reverse($sto_d)) ?></div>
+	<div id="ch_trix"><?= json_encode(array_reverse($trix)) ?></div>
+	<div id="ch_trix_sig"><?= json_encode(array_reverse($trix_sig)) ?></div>
 </div>
