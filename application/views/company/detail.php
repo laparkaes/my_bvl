@@ -1,6 +1,6 @@
 <div class="pagetitle mb-3">
 	<div class="d-flex justify-content-between">
-		<h1><?= $company->companyName ?> <i class="bi bi-star-fill ic_fav_control ic_fav_<?= $company->company_id ?>" value="<?= $company->company_id ?>"></i></h1>
+		<h1><?= $company->companyName ?> <i class="bi bi-star<?= $ic_fav ?> ic_fav_control ic_fav_<?= $company->company_id ?>" value="<?= $company->company_id ?>"></i></h1>
 		<h1>[<?= $company->stock ?>] [<?= $company->sector->sectorDescription ?>]</h1>
 	</div>
 </div>
@@ -11,16 +11,28 @@
 				<div class="card-body">
 					<div class="d-flex justify-content-between align-items-center">
 						<h5 class="card-title">Graficos</h5>
-						<div class="dropdown">
-							<button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Indicadores</button>
-							<ul class="dropdown-menu">
-								<li><button class="dropdown-item" type="button">Action</button></li>
-								<li><button class="dropdown-item" type="button">Another action</button></li>
-								<li><button class="dropdown-item" type="button">Something else here</button></li>
-							</ul>
+						<div>
+							<div class="dropdown">
+								<select class="form-select form-select-sm d-inline" id="chart_data_qty" style="width: 100px;">
+									<option value="-300">300</option>
+									<option value="-600">600</option>
+									<option value="-1000">1000</option>
+									<option value="-9999">Todos</option>
+								</select>
+								<a class="btn btn-success btn-sm" type="button" href="<?= base_url() ?>company/update_indicators/<?= $company->company_id ?>" target="_blank">Actualizar Indicadores</a>
+								<button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Indicador</button>
+								<ul class="dropdown-menu">
+									<li><button class="dropdown-item btn_chart ch_price active" type="button" value="ch_price_sma">Precio & SMA</button></li>
+									<li><button class="dropdown-item btn_chart ch_price" type="button" value="ch_price_ema">Precio & EMA</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="-1000">1000</button></li>
+									<li><button class="dropdown-item btn_chart" type="button" value="-9999">Todos</button></li>
+								</ul>
+							</div>
 						</div>
 					</div>
-					<div id="chart_block" style="min-height: 500px;"></div>
+					<div id="chart_price_block">
+						<div id="chart_price"></div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -130,6 +142,7 @@
 							<?php
 							$dates = $candles = $volumes = [];
 							$sma_5 = $sma_20 = $sma_60 = $sma_120 = $sma_200 = [];
+							$ema_5 = $ema_20 = $ema_60 = $ema_120 = $ema_200 = [];
 							foreach($stocks as $i => $s){ 
 								$s->open = $s->open ? $s->open : null;
 								$s->close = $s->close ? $s->close : null;
@@ -146,6 +159,11 @@
 									$sma_60[] = ($s->sma_60 > 0) ? $s->sma_60 : null;
 									$sma_120[] = ($s->sma_120 > 0) ? $s->sma_120 : null;
 									$sma_200[] = ($s->sma_200 > 0) ? $s->sma_200 : null;
+									$ema_5[] = ($s->ema_5 > 0) ? $s->ema_5 : null;
+									$ema_20[] = ($s->ema_20 > 0) ? $s->ema_20 : null;
+									$ema_60[] = ($s->ema_60 > 0) ? $s->ema_60 : null;
+									$ema_120[] = ($s->ema_120 > 0) ? $s->ema_120 : null;
+									$ema_200[] = ($s->ema_200 > 0) ? $s->ema_200 : null;
 								}
 								
 								$vp = $s->var_per;
@@ -182,4 +200,9 @@
 	<div id="ch_sma_60"><?= json_encode(array_reverse($sma_60)) ?></div>
 	<div id="ch_sma_120"><?= json_encode(array_reverse($sma_120)) ?></div>
 	<div id="ch_sma_200"><?= json_encode(array_reverse($sma_200)) ?></div>
+	<div id="ch_ema_5"><?= json_encode(array_reverse($ema_5)) ?></div>
+	<div id="ch_ema_20"><?= json_encode(array_reverse($ema_20)) ?></div>
+	<div id="ch_ema_60"><?= json_encode(array_reverse($ema_60)) ?></div>
+	<div id="ch_ema_120"><?= json_encode(array_reverse($ema_120)) ?></div>
+	<div id="ch_ema_200"><?= json_encode(array_reverse($ema_200)) ?></div>
 </div>

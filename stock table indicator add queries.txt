@@ -1,1 +1,0 @@
-ALTER TABLE `stock` ADD `last_year_per` DOUBLE NULL DEFAULT NULL AFTER `last_year_max`; 

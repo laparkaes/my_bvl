@@ -62,11 +62,12 @@ class Company extends CI_Controller {
 		$last_stock = $this->exec_curl("https://dataondemand.bvl.com.pe/v1/stock-quote/market", $data, true);
 		if ($last_stock){
 			$last_stock = $last_stock->content[0];
-			$offers = ["buy" => $last_stock->buy, "sell" => $last_stock->sell];
-			if (strtotime($last_stock->lastDate) > strtotime($stocks[0]->date)){
+			$offers["buy"] = (property_exists($last_stock, 'buy')) ? $last_stock->buy : "";
+			$offers["sell"] = (property_exists($last_stock, 'sell')) ? $last_stock->sell : "";
+			if (strtotime($last_stock->createdDate) > strtotime($stocks[0]->date)){
 				if (strtotime($last_stock->previousDate) > strtotime($stocks[0]->date)){
 					//update all stock records
-					if ($last) $from = $stocks[0]->date; else $from = "1999-01-01";
+					if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
 					$this->update_stocks($company->stock, $from);
 					//update indicators if there is new record
 					if ($this->gm->filter("stock", ["nemonico" => $company->stock, "is_calculated" => 0, "close >" => 0]))
@@ -76,21 +77,63 @@ class Company extends CI_Controller {
 				}
 				
 				$last_stock = $this->convert_today_to_record($last_stock);
+				if ($last_stock->close) array_unshift($stocks, $last_stock);
+				else $last_stock = clone $stocks[0];
 				
 				if (!$last_stock->is_calculated){
-					$stocks_aux = array_reverse(array_slice($stocks, 0, 500));//today value has 499 as index
+					$stocks_aux = array_reverse($this->gm->filter("stock", ["nemonico" => $company->stock, "close >" => 0], null, null, [["date", "desc"]], 500, 0));//today value has 499 as index
+					
+					$stocks_aux[] = $last_stock;
 					$result = $this->calculate_indicators($stocks_aux);
 					$result_a = $this->indicator_analysis($stocks_aux, $result);
 					
 					//assign all indicators to $last_stock
-					
-					$last_stock->buy_signal = $result_a["buy_signals"][499];
+					$last_stock->is_calculated = true;
+					$last_stock->adx = round($result["adx"]["adx"][500], 3);
+					$last_stock->adx_pdi = round($result["adx"]["pdi"][500], 3);
+					$last_stock->adx_mdi = round($result["adx"]["mdi"][500], 3);
+					$last_stock->atr = round($result["atr"][500], 3);
+					$last_stock->bb_u = round($result["bb"]["uppers"][500], 3);
+					$last_stock->bb_m = round($result["bb"]["middles"][500], 3);
+					$last_stock->bb_l = round($result["bb"]["lowers"][500], 3);
+					$last_stock->cci = round($result["cci"][500], 3);
+					$last_stock->ema_5 = round($result["ema"]["ema_5"][500], 3);
+					$last_stock->ema_20 = round($result["ema"]["ema_20"][500], 3);
+					$last_stock->ema_60 = round($result["ema"]["ema_60"][500], 3);
+					$last_stock->ema_120 = round($result["ema"]["ema_120"][500], 3);
+					$last_stock->ema_200 = round($result["ema"]["ema_200"][500], 3);
+					$last_stock->env_u = round($result["env"]["uppers"][500], 3);
+					$last_stock->env_l = round($result["env"]["lowers"][500], 3);
+					$last_stock->ich_a = round($result["ich"]["span_a"][500], 3);
+					$last_stock->ich_b = round($result["ich"]["span_b"][500], 3);
+					$last_stock->macd = round($result["macd"]["macd"][500], 3);
+					$last_stock->macd_sig = round($result["macd"]["macd_sig"][500], 3);
+					$last_stock->macd_div = round($result["macd"]["macd_div"][500], 3);
+					$last_stock->mfi = round($result["mfi"][500], 3);
+					$last_stock->mom = round($result["mom"]["mom"][500], 3);
+					$last_stock->mom_sig = round($result["mom"]["mom_signal"][500], 3);
+					$last_stock->psar = round($result["psar"][500], 3);
+					$last_stock->pch_u = round($result["pch"]["uppers"][500], 3);
+					$last_stock->pch_l = round($result["pch"]["lowers"][500], 3);
+					$last_stock->ppo = round($result["ppo"][500], 3);
+					$last_stock->rsi = round($result["rsi"][500], 3);
+					$last_stock->sma_5 = round($result["sma"]["sma_5"][500], 3);
+					$last_stock->sma_20 = round($result["sma"]["sma_20"][500], 3);
+					$last_stock->sma_60 = round($result["sma"]["sma_60"][500], 3);
+					$last_stock->sma_120 = round($result["sma"]["sma_120"][500], 3);
+					$last_stock->sma_200 = round($result["sma"]["sma_200"][500], 3);
+					$last_stock->sto_k = round($result["sto"]["k"][500], 3);
+					$last_stock->sto_d = round($result["sto"]["d"][500], 3);
+					$last_stock->trix = round($result["trix"]["trix"][500], 3);
+					$last_stock->trix_sig = round($result["trix"]["trix_signal"][500], 3);
+					$last_stock->last_year_min = $result["last_year"]["min"][500];
+					$last_stock->last_year_max = $result["last_year"]["max"][500];
+					$last_stock->last_year_per = $result["last_year"]["per"][500];
+					$last_stock->buy_signal = $result_a["buy_signals"][500];
 					$last_stock->buy_signal_qty = count($last_stock->buy_signal);
-					$last_stock->sell_signal = $result_a["sell_signals"][499];
+					$last_stock->sell_signal = $result_a["sell_signals"][500];
 					$last_stock->sell_signal_qty = count($last_stock->sell_signal);
 				}
-				print_r($last_stock);
-				array_unshift($stocks, clone $last_stock);
 			}else $last_stock = clone $stocks[0];
 		}else $last_stock = clone $stocks[0];
 		
@@ -103,9 +146,10 @@ class Company extends CI_Controller {
 			"offers" => $offers,
 			"last_stock" => $last_stock,
 			"stocks" => $stocks,
+			"ic_fav" => $this->gm->filter("favorite", ["company_id" => $company->company_id]) ? "-fill" : "",
 			"main" => "company/detail",
 		];
-		//$this->load->view('layout', $data);
+		$this->load->view('layout', $data);
 	}
 	
 	private function get_var_per($stock){
@@ -126,15 +170,15 @@ class Company extends CI_Controller {
 		$record = $this->gm->structure("stock");
 		$record->stock_id = 0;
 		$record->nemonico = $today->nemonico;
-		$record->date = date("Y-m-d", strtotime($today->lastDate));
-		$record->open = $today->opening;
-		$record->close = $today->last;
-		$record->high = $today->maximun;
-		$record->low = $today->minimun;
+		$record->date = date("Y-m-d", strtotime($today->createdDate));
+		$record->open = (property_exists($today, 'opening')) ? $today->opening : null;
+		$record->close = (property_exists($today, 'last')) ? $today->last : null;
+		$record->high = (property_exists($today, 'maximun')) ? $today->maximun : null;
+		$record->low = (property_exists($today, 'minimun')) ? $today->minimun : null;
 		$record->average = 0;//no use data
-		$record->quantityNegotiated = $today->negotiatedQuantity;
-		$record->solAmountNegotiated = $today->negotiatedNationalAmount;
-		$record->dollarAmountNegotiated = ($today->currency === "S/") ? $today->negotiatedAmount / 3.8 : $today->negotiatedAmount;
+		$record->quantityNegotiated = (property_exists($today, 'negotiatedQuantity')) ? $today->negotiatedQuantity : null;
+		$record->solAmountNegotiated = (property_exists($today, 'negotiatedNationalAmount')) ? $today->negotiatedNationalAmount : null;
+		$record->dollarAmountNegotiated = (property_exists($today, 'negotiatedAmount')) ? ($today->currency === "S/") ? $today->negotiatedAmount / 3.8 : $today->negotiatedAmount : null;
 		$record->yesterday = $today->previousDate;
 		$record->yesterdayClose = $today->previous;
 		$record->currencySymbol = $today->currency;
@@ -253,7 +297,7 @@ class Company extends CI_Controller {
 		
 		//print_r($indicators);  echo "<br/><br/>";
 		if ($indicators) $this->gm->update_multi("stock", $indicators, "stock_id");
-		//echo "Actualizacion de indicadores finalizada.";
+		echo "Actualizacion finalizada.";
 	}
 	
 	private function calculate_indicators($stocks){
