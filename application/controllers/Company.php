@@ -152,16 +152,6 @@ class Company extends CI_Controller {
 		$this->load->view('layout', $data);
 	}
 	
-	public function aux($company_id){
-		$company = $this->gm->unique("company", "company_id", $company_id);
-		
-		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]], 1, 0)[0];
-		
-		foreach($stocks as $key => $s) echo '<div id="ch_'.$key.'"><= json_encode(array_reverse($'.$key.')) ></div><br/>';
-		
-		
-	}
-	
 	private function get_var_per($stock){
 		if ($stock->close and $stock->yesterdayClose){
 			$value = ($stock->close - $stock->yesterdayClose) * 100 / $stock->yesterdayClose;
