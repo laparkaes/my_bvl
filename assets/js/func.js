@@ -462,11 +462,26 @@ function init_bands_chart(){
 		make_band_chart("chart_psar", "Parabolic Sar", legend, xAxis, series);
 	}
 	
+	function init_pch_chart(){
+		var legend = ['Precio', 'Superior', 'Inferior'];
+		var xAxis = JSON.parse($("#ch_dates").html()).slice(data_qty);
+		var series = [
+			{name: 'Precio', type: 'line', data: JSON.parse($("#ch_prices").html()).slice(data_qty),
+				smooth: true, showSymbol: false},
+			{name: 'Superior', type: 'line', data: JSON.parse($("#ch_pch_u").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+			{name: 'Inferior', type: 'line', data: JSON.parse($("#ch_pch_l").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+		];
+		
+		make_band_chart("chart_pch", "Price Channel", legend, xAxis, series);
+	}
 	
 	init_bb_chart();
 	init_env_chart();
 	init_ich_chart();
 	init_psar_chart();
+	init_pch_chart();
 }
 
 function set_chart(selected, dom){
