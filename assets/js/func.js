@@ -342,7 +342,65 @@ function init_indicators_chart(){
 		make_ind_chart("chart_mom", "MOM", legend, xAxis, yAxis, series);
 	}
 	
+	function init_ppo_chart(){
+		var legend = ['Precio', 'PPO'];
+		var xAxis = JSON.parse($("#ch_dates").html()).slice(data_qty);
+		var yAxis = ['PPO', 'Precio'];
+		var series = [
+			{name: 'Precio', type: 'line', data: JSON.parse($("#ch_prices").html()).slice(data_qty),
+				smooth: true, showSymbol: false, yAxisIndex: 1},
+			{name: 'PPO', type: 'line', data: JSON.parse($("#ch_ppo").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+		];
+		
+		make_ind_chart("chart_ppo", "PPO", legend, xAxis, yAxis, series);
+	}
 	
+	function init_rsi_chart(){
+		var legend = ['Precio', 'RSI'];
+		var xAxis = JSON.parse($("#ch_dates").html()).slice(data_qty);
+		var yAxis = ['RSI', 'Precio'];
+		var series = [
+			{name: 'Precio', type: 'line', data: JSON.parse($("#ch_prices").html()).slice(data_qty),
+				smooth: true, showSymbol: false, yAxisIndex: 1},
+			{name: 'RSI', type: 'line', data: JSON.parse($("#ch_rsi").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+		];
+		
+		make_ind_chart("chart_rsi", "RSI", legend, xAxis, yAxis, series);
+	}
+	
+	function init_sto_chart(){
+		var legend = ['Precio', 'Stochastic'];
+		var xAxis = JSON.parse($("#ch_dates").html()).slice(data_qty);
+		var yAxis = ['Stochastic', 'Precio'];
+		var series = [
+			{name: 'Precio', type: 'line', data: JSON.parse($("#ch_prices").html()).slice(data_qty),
+				smooth: true, showSymbol: false, yAxisIndex: 1},
+			{name: 'Stochastic K', type: 'line', data: JSON.parse($("#ch_sto_k").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+			{name: 'Stochastic D', type: 'line', data: JSON.parse($("#ch_sto_d").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+		];
+		
+		make_ind_chart("chart_sto", "Stochastic", legend, xAxis, yAxis, series);
+	}
+	
+	function init_trix_chart(){
+		var legend = ['Precio', 'Trix'];
+		var xAxis = JSON.parse($("#ch_dates").html()).slice(data_qty);
+		var yAxis = ['Trix', 'Precio'];
+		var series = [
+			{name: 'Precio', type: 'line', data: JSON.parse($("#ch_prices").html()).slice(data_qty),
+				smooth: true, showSymbol: false, yAxisIndex: 1},
+			{name: 'Trix', type: 'line', data: JSON.parse($("#ch_trix").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+			{name: 'Signal', type: 'line', data: JSON.parse($("#ch_trix_sig").html()).slice(data_qty),
+				smooth: true, showSymbol: false, lineStyle: {width: 1}},
+		];
+		
+		make_ind_chart("chart_trix", "Trix", legend, xAxis, yAxis, series);
+	}
 	
 	init_signals_chart();
 	init_adx_chart();
@@ -351,7 +409,10 @@ function init_indicators_chart(){
 	init_macd_chart();
 	init_mfi_chart();
 	init_mom_chart();
-	$("#ch_content").append("hola como estas?");
+	init_ppo_chart();
+	init_rsi_chart();
+	init_sto_chart();
+	init_trix_chart();
 }
 
 function init_bands_chart(){

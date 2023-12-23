@@ -131,7 +131,7 @@ class Home extends CI_Controller {
 		if (!$to) $to = date('Y-m-d');
 		
 		$code = str_replace("/", "%2F", $code);
-		$from_history = date('Y-m-d', strtotime('-1 day', strtotime($from)));
+		$from_history = date('Y-m-d', strtotime($from));
 		$to_history = date('Y-m-d', strtotime('+1 day', strtotime($to)));
 		echo "search ".$code.", ".$from_history." ~ ".$to_history."<br/>";
 		
