@@ -14,6 +14,11 @@ class General_model extends CI_Model{
 		return $this->db->insert_id();
 	}
 	
+	function insert_multi($tablename, $data){
+		if ($data) return $this->db->insert_batch($tablename, $data);
+		else return 0;
+	}
+	
 	function filter($tablename, $w, $l = null, $w_in = null, $orders = [], $limit = "", $offset = ""){
 		if ($w){ $this->db->group_start(); $this->db->where($w); $this->db->group_end(); }
 		if ($l){
@@ -226,10 +231,6 @@ class General_model extends CI_Model{
 		$query = $this->db->get();
 		$result = $query->result();
 		return $result;
-	}
-	
-	function insert_multi($tablename, $data){
-		return $this->db->insert_batch($tablename, $data);
 	}
 	
 	function update_($tablename, $field, $id, $data){ 

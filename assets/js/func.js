@@ -576,12 +576,20 @@ function set_chart(selected, dom){
 
 function update_stock(){
 	var data = JSON.parse($($(".update_datas")[0]).html());
+	$($(".update_datas")[0]).remove();
+	$("#r_" + data.stock).remove();
+	$("#bl_updating").prepend('<div>' + data.stock + '</div>');
 	
 	//do something
-	console.log(data);
+	ajax_simple(data, "company/ajax_update_stock").done(function(res) {
+		$("#bl_updating").html("");
+		$("#bl_finished").prepend('<div>' + res + '</div>');
+		
+		if ($(".update_datas").length > 0) update_stock();
+		//else location.reload();
+	});
 	
-	$($(".update_datas")[0]).remove();
-	if ($(".update_datas").length > 0) update_stock();
+	
 }
 
 $(document).ready(function() {
@@ -598,9 +606,7 @@ $(document).ready(function() {
 		}));
 	}
 	
-	if ($(".update_datas").length){
-		update_stock();
-	}
+	if ($(".update_datas").length) update_stock();
 	
 });
 

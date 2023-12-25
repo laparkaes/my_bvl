@@ -230,18 +230,8 @@ class Company extends CI_Controller {
 		echo json_encode($data);
 	}
 	
-	public function update_indicators($company_id){
-		$company = $this->gm->unique("company", "company_id", $company_id);
-		if (!$company){
-			$success_msgs = $error_msgs = [];
-			$error_msgs[] = "Empresa no existe.";
-			
-			$msgs = ["success_msgs" => $success_msgs, "error_msgs" => $error_msgs];
-			$this->session->set_flashdata('msgs', $msgs);
-			redirect("/company");
-		}
-		
-		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock, "close > " => 0], null, null, [["date", "asc"]]);
+	public function update_indicators($stock){
+		$stocks = $this->gm->filter("stock", ["nemonico" => $stock, "close > " => 0], null, null, [["date", "asc"]]);
 		$result = $this->calculate_indicators($stocks);
 		$result_a = $this->indicator_analysis($stocks, $result);
 		
@@ -299,9 +289,7 @@ class Company extends CI_Controller {
 			}
 		}
 		
-		//print_r($indicators);  echo "<br/><br/>";
 		if ($indicators) $this->gm->update_multi("stock", $indicators, "stock_id");
-		echo "Actualizacion finalizada.";
 	}
 	
 	private function calculate_indicators($stocks){
@@ -464,14 +452,15 @@ class Company extends CI_Controller {
 	}
 	
 	private function update_stocks($code, $from = "", $to = ""){
+		//1. preparacion de los datos iniciales
 		if (!$from) $from = "2000-01-01";
 		if (!$to) $to = date('Y-m-d');
 		
 		$code = str_replace("/", "%2F", $code);
-		$from_history = date('Y-m-d', strtotime('-1 day', strtotime($from)));
-		$to_history = date('Y-m-d', strtotime('+1 day', strtotime($to)));
-		echo "search ".$code.", ".$from_history." ~ ".$to_history."<br/>";
+		$from_history = date('Y-m-d', strtotime($from));
+		$to_history = date('Y-m-d', strtotime($to));
 		
+		//2. cargar registros desde bvl
 		$datas = [];
 		$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$code."?startDate=".$from_history."&endDate=".$to_history;
 		$res = $this->exec_curl($url, null, false);
@@ -482,19 +471,64 @@ class Company extends CI_Controller {
 			}
 		}
 		
+		//3. ordenar por fecha en orden ascendiente
 		usort($datas, function($a, $b){ return $a->date < $b->date; });
 		
-		//get last date
+		//4. obtener ultima fecha de registro en DB
 		$last_stock = $this->gm->filter("stock", ["nemonico" => $code], null, null, [["date", "desc"]], 1, 0);
 		if ($last_stock) $last_date = $last_stock[0]->date; else $last_date = "1999-01-01";
 		$last_date = strtotime($last_date);
 		
+		//5. preparar un arreglo con datos no duplicados
+		$new_records = [];
 		foreach($datas as $d){
 			if ($last_date < strtotime($d->date)){
 				unset($d->id);
-				$this->gm->insert("stock", $d);
+				$new_records[] = $d;
 			}
 		}
+		
+		//6. insertar a la base de datos
+		$qty = $this->gm->insert_multi("stock", $new_records);
+		
+		//7. actualizar cantidad de registros de este y ultimo anio
+		$this_year = date("Y");
+		$this_year_f = ["nemonico" => $code, "date >=" => $this_year."-01-01", "date <=" => $this_year."-12-31"];
+		
+		$last_year = $this_year - 1; 
+		$last_year_f = ["nemonico" => $code, "date >=" => $last_year."-01-01", "date <=" => $last_year."-12-31"];
+		
+		
+		/*
+		
+		
+		foreach($companies as $c){
+			$this_year_f["nemonico"] = $last_year_f["nemonico"] = $c->stock;
+			
+			$data = [
+				"qty_total" => $this->gm->qty("stock", ["nemonico" => $c->stock]),
+				"qty_this_year" => $this->gm->qty("stock", $this_year_f),
+				"qty_last_year" => $this->gm->qty("stock", $last_year_f),
+			];
+			
+			$this->gm->update("company", ["company_id" => $c->company_id], $data);
+			echo $c->companyName." - ".$c->stock." ... ok.<br/>";
+		}
+		*/
+		
+		
+		//7. actualizar los indicadores
+		$this->update_indicators($code);
+		
+		//8. retornar cantidad de nuevos registros
+		return $qty;
+	}
+	
+	public function ajax_update_stock(){
+		$data = $this->input->post();
+		$qty = $this->update_stocks($data["stock"], $data["date"]);
+		
+		echo ($data["stock"]." (".number_format($qty).")");
 	}
 	
 	private function exec_curl($url, $datas = null, $is_post = false){
