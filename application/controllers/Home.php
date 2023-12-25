@@ -11,6 +11,64 @@ class Home extends CI_Controller {
 	}
 
 	public function index(){
+		//1. cargar ultimos registros de cada empresa
+		$dates = [];
+		
+		//2. ordenar en un $dates[nemonico][last_date] = fecha
+		$last_stocks = $this->stock->get_last_stocks();//cargar ultimos registros de cada empresa desde DB
+		foreach($last_stocks as $ls) $dates[$ls->nemonico]["last_date"] = $ls->last_date;
+		
+		//3. cargar movimientos de hoy desde bvl
+		$stocks_d = $stocks_f = []; //arreglos para guardar empresas nacionales y extranjeras
+		$stocks_now = $this->get_now(true);//cargar registros de hoy desde bvl
+		$stocks = $stocks_now->content;//en content guardan los registros
+		foreach($stocks as $s){
+			if (property_exists($s, 'sectorCode')) $stocks_d[] = $s;//nacional
+			else $stocks_f[] = $s;//extranjera
+		}
+		
+		//4. ordenar en el mismo $dates[nemonico][previousDate] = valor
+		foreach($stocks_d as $s){//solo trabajare con nacionales
+			//debe existir propiedad dia anterior. En caso contrario, es primer dia que se presenta movimiento
+			if (property_exists($s, 'previousDate')) $dates[$s->nemonico]["previousDate"] = $s->previousDate;
+			//else unset($dates[$s->nemonico]);
+		}
+		
+		//5. recorrer arreglo y separar las empresas que se necesita actualizar en $updates = ["stock" =>, "date" =>]
+		$updates = [];
+		foreach($dates as $stock => $ms)
+			if (array_key_exists('previousDate', $ms))
+				if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"]))
+					$updates[] = ["stock" => $stock, "date" => $ms["last_date"]];
+		
+		$updates[] = ["stock" => "SCOTIAC1", "date" => "2023-12-01"];
+		$updates[] = ["stock" => "ALICORC1", "date" => "2023-12-01"];
+		$updates[] = ["stock" => "AENZAC1", "date" => "2023-12-01"];
+		$updates[] = ["stock" => "BAP", "date" => "2023-12-01"];
+		
+		//6. evaluar cantidad de elementos de $companies
+		if (count($updates) > 0){
+			//6.1. si  > 0, cargar vista index_update
+			$data = [
+				"updates" => $updates,
+				"main" => "home/index_update",
+			];
+			$this->load->view('layout', $data);
+		}else{
+			//6.2. en caso contrario, cargar vista de resumen del dia separando lista de favoritos y general
+			/*
+			$data = [
+				"updates" => $updates,
+				"main" => "home/index_update",
+			];
+			$this->load->view('layout', $data);
+			*/
+			print_r($updates);
+		}
+		
+	}
+
+	public function index1(){
 		//update, load and filter domestic companies
 		$companies = $this->daily_update();
 		
@@ -74,7 +132,7 @@ class Home extends CI_Controller {
 		foreach($last_stocks as $ls) $my_stocks[$ls->nemonico]["last_date"] = $ls->last_date;
 		
 		$stocks_d = $stocks_f = []; //domestic & foreign stocks
-		$stocks_now = $this->get_now(true);//load from bvl db
+		$stocks_now = $this->get_now(true);//load from bvl db, today records
 		$stocks = $stocks_now->content;//filter stock records
 		foreach($stocks as $s){
 			if (property_exists($s, 'sectorCode')) $stocks_d[] = $s;//domestic stock

@@ -65,77 +65,79 @@ class Company extends CI_Controller {
 			$offers["buy"] = (property_exists($last_stock, 'buy')) ? $last_stock->buy : "";
 			$offers["sell"] = (property_exists($last_stock, 'sell')) ? $last_stock->sell : "";
 			if (strtotime($last_stock->createdDate) > strtotime($stocks[0]->date)){
-				if (strtotime($last_stock->previousDate) > strtotime($stocks[0]->date)){
-					//update all stock records
-					if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
-					$this->update_stocks($company->stock, $from);
-					//update indicators if there is new record
-					if ($this->gm->filter("stock", ["nemonico" => $company->stock, "is_calculated" => 0, "close >" => 0]))
-						$this->update_indicators($company->company_id);
+				if (property_exists($last_stock, 'previousDate')){
+					if (strtotime($last_stock->previousDate) > strtotime($stocks[0]->date)){
+						//update all stock records
+						if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
+						$this->update_stocks($company->stock, $from);
+						//update indicators if there is new record
+						if ($this->gm->filter("stock", ["nemonico" => $company->stock, "is_calculated" => 0, "close >" => 0]))
+							$this->update_indicators($company->company_id);
+						
+						$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
+					}
 					
-					$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
-				}
-				
-				$last_stock = $this->convert_today_to_record($last_stock);
-				if ($last_stock->close) array_unshift($stocks, $last_stock);
-				else $last_stock = clone $stocks[0];
-				
-				if (!$last_stock->is_calculated){
-					$stocks_aux = array_reverse($this->gm->filter("stock", ["nemonico" => $company->stock, "close >" => 0], null, null, [["date", "desc"]], 500, 0));//today value has 499 as index
+					$last_stock = $this->convert_today_to_record($last_stock);
+					if ($last_stock->close) array_unshift($stocks, $last_stock);
+					else $last_stock = clone $stocks[0];
 					
-					$stocks_aux[] = $last_stock;
-					$result = $this->calculate_indicators($stocks_aux);
-					$result_a = $this->indicator_analysis($stocks_aux, $result);
-					$last_i = count($stocks_aux) - 1;
-					
-					
-					//assign all indicators to $last_stock
-					$last_stock->is_calculated = true;
-					$last_stock->adx = round($result["adx"]["adx"][$last_i], 3);
-					$last_stock->adx_pdi = round($result["adx"]["pdi"][$last_i], 3);
-					$last_stock->adx_mdi = round($result["adx"]["mdi"][$last_i], 3);
-					$last_stock->atr = round($result["atr"][$last_i], 3);
-					$last_stock->bb_u = round($result["bb"]["uppers"][$last_i], 3);
-					$last_stock->bb_m = round($result["bb"]["middles"][$last_i], 3);
-					$last_stock->bb_l = round($result["bb"]["lowers"][$last_i], 3);
-					$last_stock->cci = round($result["cci"][$last_i], 3);
-					$last_stock->ema_5 = round($result["ema"]["ema_5"][$last_i], 3);
-					$last_stock->ema_20 = round($result["ema"]["ema_20"][$last_i], 3);
-					$last_stock->ema_60 = round($result["ema"]["ema_60"][$last_i], 3);
-					$last_stock->ema_120 = round($result["ema"]["ema_120"][$last_i], 3);
-					$last_stock->ema_200 = round($result["ema"]["ema_200"][$last_i], 3);
-					$last_stock->env_u = round($result["env"]["uppers"][$last_i], 3);
-					$last_stock->env_l = round($result["env"]["lowers"][$last_i], 3);
-					$last_stock->ich_a = round($result["ich"]["span_a"][$last_i], 3);
-					$last_stock->ich_b = round($result["ich"]["span_b"][$last_i], 3);
-					$last_stock->macd = round($result["macd"]["macd"][$last_i], 3);
-					$last_stock->macd_sig = round($result["macd"]["macd_sig"][$last_i], 3);
-					$last_stock->macd_div = round($result["macd"]["macd_div"][$last_i], 3);
-					$last_stock->mfi = round($result["mfi"][$last_i], 3);
-					$last_stock->mom = round($result["mom"]["mom"][$last_i], 3);
-					$last_stock->mom_sig = round($result["mom"]["mom_signal"][$last_i], 3);
-					$last_stock->psar = round($result["psar"][$last_i], 3);
-					$last_stock->pch_u = round($result["pch"]["uppers"][$last_i], 3);
-					$last_stock->pch_l = round($result["pch"]["lowers"][$last_i], 3);
-					$last_stock->ppo = round($result["ppo"][$last_i], 3);
-					$last_stock->rsi = round($result["rsi"][$last_i], 3);
-					$last_stock->sma_5 = round($result["sma"]["sma_5"][$last_i], 3);
-					$last_stock->sma_20 = round($result["sma"]["sma_20"][$last_i], 3);
-					$last_stock->sma_60 = round($result["sma"]["sma_60"][$last_i], 3);
-					$last_stock->sma_120 = round($result["sma"]["sma_120"][$last_i], 3);
-					$last_stock->sma_200 = round($result["sma"]["sma_200"][$last_i], 3);
-					$last_stock->sto_k = round($result["sto"]["k"][$last_i], 3);
-					$last_stock->sto_d = round($result["sto"]["d"][$last_i], 3);
-					$last_stock->trix = round($result["trix"]["trix"][$last_i], 3);
-					$last_stock->trix_sig = round($result["trix"]["trix_signal"][$last_i], 3);
-					$last_stock->last_year_min = $result["last_year"]["min"][$last_i];
-					$last_stock->last_year_max = $result["last_year"]["max"][$last_i];
-					$last_stock->last_year_per = $result["last_year"]["per"][$last_i];
-					$last_stock->buy_signal = $result_a["buy_signals"][$last_i];
-					$last_stock->buy_signal_qty = count($last_stock->buy_signal);
-					$last_stock->sell_signal = $result_a["sell_signals"][$last_i];
-					$last_stock->sell_signal_qty = count($last_stock->sell_signal);
-				}
+					if (!$last_stock->is_calculated){
+						$stocks_aux = array_reverse($this->gm->filter("stock", ["nemonico" => $company->stock, "close >" => 0], null, null, [["date", "desc"]], 500, 0));//today value has 499 as index
+						
+						$stocks_aux[] = $last_stock;
+						$result = $this->calculate_indicators($stocks_aux);
+						$result_a = $this->indicator_analysis($stocks_aux, $result);
+						$last_i = count($stocks_aux) - 1;
+						
+						
+						//assign all indicators to $last_stock
+						$last_stock->is_calculated = true;
+						$last_stock->adx = round($result["adx"]["adx"][$last_i], 3);
+						$last_stock->adx_pdi = round($result["adx"]["pdi"][$last_i], 3);
+						$last_stock->adx_mdi = round($result["adx"]["mdi"][$last_i], 3);
+						$last_stock->atr = round($result["atr"][$last_i], 3);
+						$last_stock->bb_u = round($result["bb"]["uppers"][$last_i], 3);
+						$last_stock->bb_m = round($result["bb"]["middles"][$last_i], 3);
+						$last_stock->bb_l = round($result["bb"]["lowers"][$last_i], 3);
+						$last_stock->cci = round($result["cci"][$last_i], 3);
+						$last_stock->ema_5 = round($result["ema"]["ema_5"][$last_i], 3);
+						$last_stock->ema_20 = round($result["ema"]["ema_20"][$last_i], 3);
+						$last_stock->ema_60 = round($result["ema"]["ema_60"][$last_i], 3);
+						$last_stock->ema_120 = round($result["ema"]["ema_120"][$last_i], 3);
+						$last_stock->ema_200 = round($result["ema"]["ema_200"][$last_i], 3);
+						$last_stock->env_u = round($result["env"]["uppers"][$last_i], 3);
+						$last_stock->env_l = round($result["env"]["lowers"][$last_i], 3);
+						$last_stock->ich_a = round($result["ich"]["span_a"][$last_i], 3);
+						$last_stock->ich_b = round($result["ich"]["span_b"][$last_i], 3);
+						$last_stock->macd = round($result["macd"]["macd"][$last_i], 3);
+						$last_stock->macd_sig = round($result["macd"]["macd_sig"][$last_i], 3);
+						$last_stock->macd_div = round($result["macd"]["macd_div"][$last_i], 3);
+						$last_stock->mfi = round($result["mfi"][$last_i], 3);
+						$last_stock->mom = round($result["mom"]["mom"][$last_i], 3);
+						$last_stock->mom_sig = round($result["mom"]["mom_signal"][$last_i], 3);
+						$last_stock->psar = round($result["psar"][$last_i], 3);
+						$last_stock->pch_u = round($result["pch"]["uppers"][$last_i], 3);
+						$last_stock->pch_l = round($result["pch"]["lowers"][$last_i], 3);
+						$last_stock->ppo = round($result["ppo"][$last_i], 3);
+						$last_stock->rsi = round($result["rsi"][$last_i], 3);
+						$last_stock->sma_5 = round($result["sma"]["sma_5"][$last_i], 3);
+						$last_stock->sma_20 = round($result["sma"]["sma_20"][$last_i], 3);
+						$last_stock->sma_60 = round($result["sma"]["sma_60"][$last_i], 3);
+						$last_stock->sma_120 = round($result["sma"]["sma_120"][$last_i], 3);
+						$last_stock->sma_200 = round($result["sma"]["sma_200"][$last_i], 3);
+						$last_stock->sto_k = round($result["sto"]["k"][$last_i], 3);
+						$last_stock->sto_d = round($result["sto"]["d"][$last_i], 3);
+						$last_stock->trix = round($result["trix"]["trix"][$last_i], 3);
+						$last_stock->trix_sig = round($result["trix"]["trix_signal"][$last_i], 3);
+						$last_stock->last_year_min = $result["last_year"]["min"][$last_i];
+						$last_stock->last_year_max = $result["last_year"]["max"][$last_i];
+						$last_stock->last_year_per = $result["last_year"]["per"][$last_i];
+						$last_stock->buy_signal = $result_a["buy_signals"][$last_i];
+						$last_stock->buy_signal_qty = count($last_stock->buy_signal);
+						$last_stock->sell_signal = $result_a["sell_signals"][$last_i];
+						$last_stock->sell_signal_qty = count($last_stock->sell_signal);
+					}	
+				}else $last_stock = clone $stocks[0];
 			}else $last_stock = clone $stocks[0];
 		}else $last_stock = clone $stocks[0];
 		

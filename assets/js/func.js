@@ -574,6 +574,16 @@ function set_chart(selected, dom){
 	}
 }
 
+function update_stock(){
+	var data = JSON.parse($($(".update_datas")[0]).html());
+	
+	//do something
+	console.log(data);
+	
+	$($(".update_datas")[0]).remove();
+	if ($(".update_datas").length > 0) update_stock();
+}
+
 $(document).ready(function() {
 	if ($("#chart_block").length){
 		set_chart(ch_selected, null);
@@ -587,6 +597,11 @@ $(document).ready(function() {
 			set_chart($(this).val(), this);
 		}));
 	}
+	
+	if ($(".update_datas").length){
+		update_stock();
+	}
+	
 });
 
 
