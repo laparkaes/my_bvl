@@ -586,7 +586,7 @@ function update_stock(){
 		$("#bl_finished").prepend('<div>' + res + '</div>');
 		
 		if ($(".update_datas").length > 0) update_stock();
-		//else location.reload();
+		else location.reload();
 	});
 	
 	

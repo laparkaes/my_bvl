@@ -156,6 +156,7 @@ class Company extends CI_Controller {
 		$this->load->view('layout', $data);
 	}
 	
+	//usado en: detail
 	private function get_var_per($stock){
 		if ($stock->close and $stock->yesterdayClose){
 			$value = ($stock->close - $stock->yesterdayClose) * 100 / $stock->yesterdayClose;
@@ -170,6 +171,7 @@ class Company extends CI_Controller {
 		return ["ic" => $ic, "bi" => $bi, "color" => $color, "value" => number_format(abs($value), 2)];
 	}
 	
+	//usado en: detail
 	private function convert_today_to_record($today){
 		$record = $this->gm->structure("stock");
 		$record->stock_id = 0;
@@ -190,32 +192,7 @@ class Company extends CI_Controller {
 		return $record;
 	}
 	
-	public function update_reg_qty(){
-		//updated at 2023-12-16
-		$companies = $this->gm->all("company");
-		
-		$this_year = date("Y");
-		$this_year_f = ["date >=" => $this_year."-01-01", "date <=" => $this_year."-12-31"];
-		
-		$last_year = $this_year - 1; 
-		$last_year_f = ["date >=" => $last_year."-01-01", "date <=" => $last_year."-12-31"];
-		
-		foreach($companies as $c){
-			$this_year_f["nemonico"] = $last_year_f["nemonico"] = $c->stock;
-			
-			$data = [
-				"qty_total" => $this->gm->qty("stock", ["nemonico" => $c->stock]),
-				"qty_this_year" => $this->gm->qty("stock", $this_year_f),
-				"qty_last_year" => $this->gm->qty("stock", $last_year_f),
-			];
-			
-			$this->gm->update("company", ["company_id" => $c->company_id], $data);
-			echo $c->companyName." - ".$c->stock." ... ok.<br/>";
-		}
-		
-		echo "<br/>------------------<br/>#Reg.Qty actualizados.";
-	}
-	
+	//usado en: home/index, company/detail
 	public function favorite_control(){
 		$data = ["company_id" => $this->input->post("company_id")];
 		if ($this->gm->filter("favorite", $data)){
