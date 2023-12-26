@@ -71,8 +71,6 @@ class Company extends CI_Controller {
 						if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
 						$this->update_stocks_from_bvl($company->stock, $from);
 						//update indicators if there is new record
-						if ($this->gm->filter("stock", ["nemonico" => $company->stock, "is_calculated" => 0, "close >" => 0]))
-							$this->update_indicators($company->company_id);
 						
 						$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
 					}
@@ -192,7 +190,7 @@ class Company extends CI_Controller {
 		return $record;
 	}
 	
-	//usado en: home/index, company/detail
+	//usado en: home/index, company/index, company/detail
 	public function favorite_control(){
 		$data = ["company_id" => $this->input->post("company_id")];
 		if ($this->gm->filter("favorite", $data)){
