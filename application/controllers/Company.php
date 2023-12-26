@@ -69,7 +69,7 @@ class Company extends CI_Controller {
 					if (strtotime($last_stock->previousDate) > strtotime($stocks[0]->date)){
 						//update all stock records
 						if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
-						$this->update_stocks($company->stock, $from);
+						$this->update_stocks_from_bvl($company->stock, $from);
 						//update indicators if there is new record
 						if ($this->gm->filter("stock", ["nemonico" => $company->stock, "is_calculated" => 0, "close >" => 0]))
 							$this->update_indicators($company->company_id);
@@ -230,6 +230,7 @@ class Company extends CI_Controller {
 		echo json_encode($data);
 	}
 	
+	//usado en: update_stocks_from_bvl
 	public function update_indicators($stock){
 		$stocks = $this->gm->filter("stock", ["nemonico" => $stock, "close > " => 0], null, null, [["date", "asc"]]);
 		$result = $this->calculate_indicators($stocks);
@@ -292,6 +293,7 @@ class Company extends CI_Controller {
 		if ($indicators) $this->gm->update_multi("stock", $indicators, "stock_id");
 	}
 	
+	//usado en: update_indicators
 	private function calculate_indicators($stocks){
 		$result = [];
 		
@@ -338,6 +340,7 @@ class Company extends CI_Controller {
 		return $result;
 	}
 	
+	//usado en: update_indicators
 	private function indicator_analysis($stocks, $result){
 		$adx = $result["adx"]["adx"];
 		$adx_pdi = $result["adx"]["pdi"];
@@ -451,7 +454,8 @@ class Company extends CI_Controller {
 		return ["buy_signals" => $buy_signals_all, "sell_signals" =>$sell_signals_all];
 	}
 	
-	private function update_stocks($code, $from = "", $to = ""){
+	//usado en: update_stock
+	private function update_stocks_from_bvl($code, $from = "", $to = ""){
 		//1. preparacion de los datos iniciales
 		if (!$from) $from = "2000-01-01";
 		if (!$to) $to = date('Y-m-d');
@@ -491,46 +495,37 @@ class Company extends CI_Controller {
 		//6. insertar a la base de datos
 		$qty = $this->gm->insert_multi("stock", $new_records);
 		
-		//7. actualizar cantidad de registros de este y ultimo anio
+		//7. actualizar cantidad de registros total, de este y de ultimo anio
 		$this_year = date("Y");
 		$this_year_f = ["nemonico" => $code, "date >=" => $this_year."-01-01", "date <=" => $this_year."-12-31"];
 		
 		$last_year = $this_year - 1; 
 		$last_year_f = ["nemonico" => $code, "date >=" => $last_year."-01-01", "date <=" => $last_year."-12-31"];
 		
+		$data = [
+			"qty_total" => $this->gm->qty("stock", ["nemonico" => $code]),
+			"qty_this_year" => $this->gm->qty("stock", $this_year_f),
+			"qty_last_year" => $this->gm->qty("stock", $last_year_f),
+		];
 		
-		/*
+		$this->gm->update("company", ["stock" => $code], $data);
 		
-		
-		foreach($companies as $c){
-			$this_year_f["nemonico"] = $last_year_f["nemonico"] = $c->stock;
-			
-			$data = [
-				"qty_total" => $this->gm->qty("stock", ["nemonico" => $c->stock]),
-				"qty_this_year" => $this->gm->qty("stock", $this_year_f),
-				"qty_last_year" => $this->gm->qty("stock", $last_year_f),
-			];
-			
-			$this->gm->update("company", ["company_id" => $c->company_id], $data);
-			echo $c->companyName." - ".$c->stock." ... ok.<br/>";
-		}
-		*/
-		
-		
-		//7. actualizar los indicadores
+		//8. actualizar los indicadores
 		$this->update_indicators($code);
 		
-		//8. retornar cantidad de nuevos registros
+		//9. retornar cantidad de nuevos registros
 		return $qty;
 	}
 	
-	public function ajax_update_stock(){
+	//usado en: home/index_update
+	public function update_stock(){
 		$data = $this->input->post();
-		$qty = $this->update_stocks($data["stock"], $data["date"]);
+		$qty = $this->update_stocks_from_bvl($data["stock"], $data["date"]);
 		
 		echo ($data["stock"]." (".number_format($qty).")");
 	}
 	
+	//usado en: update_stocks_from_bvl
 	private function exec_curl($url, $datas = null, $is_post = false){
 		if ($is_post){
 			$datas = json_encode($datas);

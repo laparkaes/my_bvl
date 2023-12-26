@@ -581,7 +581,7 @@ function update_stock(){
 	$("#bl_updating").prepend('<div>' + data.stock + '</div>');
 	
 	//do something
-	ajax_simple(data, "company/ajax_update_stock").done(function(res) {
+	ajax_simple(data, "company/update_stock").done(function(res) {
 		$("#bl_updating").html("");
 		$("#bl_finished").prepend('<div>' + res + '</div>');
 		

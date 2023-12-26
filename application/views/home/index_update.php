@@ -10,7 +10,7 @@
 				<?php foreach($updates as $i => $u){ ?>
 				<div class="text-end" id="r_<?= $u["stock"] ?>">
 					<div class="d-none update_datas"><?= json_encode($u) ?></div>
-					<span><?= $u["stock"] ?> desde <?= $u["date"] ?></span>
+					<span><?= $u["stock"] ?></span>
 				</div>
 				<?php } ?>
 			</div>
