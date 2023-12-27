@@ -8,11 +8,8 @@ class Stock_model extends CI_Model{
         $this->db->group_by('nemonico');
         $query = $this->db->get();
 
-        if ($query->num_rows() > 0) {
-            return $query->result();
-        } else {
-            return [];
-        }
+        if ($query->num_rows() > 0) return $query->result();
+        else return [];
     }
 
 }

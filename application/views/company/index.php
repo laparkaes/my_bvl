@@ -1,10 +1,5 @@
 <div class="pagetitle mb-3">
-	<div class="d-flex justify-content-between">
-		<h1>Empresas</h1>
-		<a class="btn btn-primary btn-sm" href="<?= base_url() ?>company/update_reg_qty" target="_blank">
-			Actualizar Reg.Qty
-		</a>
-	</div>
+	<h1>Empresas</h1>
 </div>
 <section class="section">
 	<div class="row">
@@ -29,6 +24,12 @@
 				</div>
 			<?php }
 			} ?>
+			<div class="card">
+				<div class="card-body">
+					<h5 class="card-title">Lista</h5>
+					hola como estas?
+				</div>
+			</div>
 			<div class="card">
 				<div class="card-body">
 					<h5 class="card-title">Lista</h5>

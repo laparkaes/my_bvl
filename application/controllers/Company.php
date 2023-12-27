@@ -10,22 +10,74 @@ class Company extends CI_Controller {
 		parent::__construct();
 		set_time_limit(0);
 		$this->load->model('general_model','gm');
-		//$this->load->model('stock_model','stock');
+		$this->load->model('stock_model','stock');
 	}
 
 	public function index(){
-		//load companies with one stock record at least
-		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["companyName", "asc"]]);
+		//1. cargar todos los favoritos y preparar un arreglo de ids de empresas
+		$favorites = [];
+		$favorites_rec = $this->gm->all("favorite");
+		foreach($favorites_rec as $f) $favorites[] = $f->company_id;
 		
-		//load sectors
+		//2. armar arreglo de sectores
 		$sectors = [];
 		$sectors_rec = $this->gm->all("sector");
 		foreach($sectors_rec as $s) $sectors[$s->sector_id] = $s->sectorDescription;
 		
-		//load favorites
-		$favorites = [];
-		$favorites_rec = $this->gm->all("favorite");
-		foreach($favorites_rec as $f) $favorites[] = $f->company_id;
+		//3. cargar todas las companias con registros de stock
+		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["qty_last_year", "desc"], ["companyName", "asc"]]);
+		
+		//4. cargar ultimos 60 stocks de todas las empresas de favoritos
+		$arr_stocks = $resume = [];
+		foreach($companies as $c) if (in_array($c->company_id, $favorites)) $arr_stocks[] = $c->stock;
+		sort($arr_stocks);
+		
+		$resume = [];
+		foreach($arr_stocks as $ar) $resume[$ar] = [];
+		
+		$w = ["date >=" => date('Y-m-d', strtotime('-44 months', time())), "date <=" => date('Y-m-d'), "close >" => 0];
+		$w_in = [["field" => "nemonico", "values" => $arr_stocks]];
+		
+		$stocks = $this->gm->filter("stock", $w, null, $w_in, [["nemonico", "asc"], ["date", "desc"]]);
+		foreach($stocks as $s){
+			
+			$s->factor = $s->last_year_per * ($s->sell_signal_qty - $s->buy_signal_qty) / 6; //11 = max signal qty
+			$resume[$s->nemonico][] = $s;
+		}
+		
+		$max = $min = 0;
+		foreach($resume as $stock => $r){
+			echo $stock."<br/>";
+			foreach($r as $s){
+				if ($max < $s->factor) $max = $s->factor;
+				if ($min > $s->factor) $min = $s->factor;
+				
+				if (abs($s->factor) > 0.4){
+					echo $s->sell_signal_qty." ".$s->buy_signal_qty." ";
+					echo $s->date." ".number_format($s->close, 3)." ".number_format($s->last_year_per, 3)." ".number_format($s->factor, 3)." ";
+					
+					echo ($s->factor > 0) ? "+++ " : "--- ";
+					echo "<br/>";
+				}
+				
+			}
+			echo "<br/>";	
+		}
+		
+		echo $max." ".$min;
+		
+		
+		/* $stocks = $this->stock->get_last_stocks_each($arr_stocks, 60);
+		
+		
+		foreach($resume as $r){
+			foreach($r as $s){
+				print_r($s);
+				echo "<br/>";
+			}
+			echo "<br/><br/>";
+		}
+		*/
 		
 		$data = [
 			"sectors" => $sectors,
@@ -33,7 +85,7 @@ class Company extends CI_Controller {
 			"companies" => $companies,
 			"main" => "company/index",
 		];
-		$this->load->view('layout', $data);
+		//$this->load->view('layout', $data);
 	}
 	
 	public function detail($company_id){
