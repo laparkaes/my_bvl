@@ -34,12 +34,17 @@ class Home extends CI_Controller {
 			//else unset($dates[$s->nemonico]);
 		}
 		
-		//5. recorrer arreglo y separar las empresas que se necesita actualizar en $updates = ["stock" =>, "date" =>]
+		//5. armar arreglo de actualizaciones en $updates = ["stock" =>, "date" =>]
 		$updates = [];
-		foreach($dates as $stock => $ms)
-			if (array_key_exists('previousDate', $ms))
-				if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"]))
-					$updates[] = ["stock" => $stock, "date" => $ms["last_date"]];
+		if ($this->input->get("all_update")){//variable que manda si quiere actualizacion general. ?all_update=1
+			$companies = $this->gm->filter("company", null, null, null, [["companyName", "asc"]]);
+			foreach($companies as $c) if ($c->stock) $updates[] = ["stock" => $c->stock, "date" => ""];	
+		}else{
+			foreach($dates as $stock => $ms)
+				if (array_key_exists('previousDate', $ms))
+					if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"]))
+						$updates[] = ["stock" => $stock, "date" => $ms["last_date"]];	
+		}
 		
 		//6. evaluar cantidad de elementos de $companies
 		if (count($updates) > 0){

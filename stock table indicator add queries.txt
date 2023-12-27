@@ -1,0 +1,1 @@
+ALTER TABLE `stock` ADD `jw_factor` DOUBLE NOT NULL DEFAULT '0'; 

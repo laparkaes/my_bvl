@@ -27,65 +27,25 @@ class Company extends CI_Controller {
 		//3. cargar todas las companias con registros de stock
 		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["qty_last_year", "desc"], ["companyName", "asc"]]);
 		
-		//4. cargar ultimos 60 stocks de todas las empresas de favoritos
+		//4. cargar ultimos 6 meses de registros para armar resumen, arreglo con puntos segun jw_factor.
 		$arr_stocks = $resume = [];
 		foreach($companies as $c) if (in_array($c->company_id, $favorites)) $arr_stocks[] = $c->stock;
 		sort($arr_stocks);
-		
-		$resume = [];
 		foreach($arr_stocks as $ar) $resume[$ar] = [];
 		
-		$w = ["date >=" => date('Y-m-d', strtotime('-44 months', time())), "date <=" => date('Y-m-d'), "close >" => 0];
+		$w = ["date >=" => date('Y-m-d', strtotime('-6 months', time())), "date <=" => date('Y-m-d'), "close >" => 0];
 		$w_in = [["field" => "nemonico", "values" => $arr_stocks]];
-		
 		$stocks = $this->gm->filter("stock", $w, null, $w_in, [["nemonico", "asc"], ["date", "desc"]]);
-		foreach($stocks as $s){
-			
-			$s->factor = $s->last_year_per * ($s->sell_signal_qty - $s->buy_signal_qty) / 6; //11 = max signal qty
-			$resume[$s->nemonico][] = $s;
-		}
-		
-		$max = $min = 0;
-		foreach($resume as $stock => $r){
-			echo $stock."<br/>";
-			foreach($r as $s){
-				if ($max < $s->factor) $max = $s->factor;
-				if ($min > $s->factor) $min = $s->factor;
-				
-				if (abs($s->factor) > 0.4){
-					echo $s->sell_signal_qty." ".$s->buy_signal_qty." ";
-					echo $s->date." ".number_format($s->close, 3)." ".number_format($s->last_year_per, 3)." ".number_format($s->factor, 3)." ";
-					
-					echo ($s->factor > 0) ? "+++ " : "--- ";
-					echo "<br/>";
-				}
-				
-			}
-			echo "<br/>";	
-		}
-		
-		echo $max." ".$min;
-		
-		
-		/* $stocks = $this->stock->get_last_stocks_each($arr_stocks, 60);
-		
-		
-		foreach($resume as $r){
-			foreach($r as $s){
-				print_r($s);
-				echo "<br/>";
-			}
-			echo "<br/><br/>";
-		}
-		*/
+		foreach($stocks as $stock) $resume[$stock->nemonico][] = $this->set_jw_factor($stock);
 		
 		$data = [
 			"sectors" => $sectors,
 			"favorites" => $favorites,
+			"resume" => $resume,
 			"companies" => $companies,
 			"main" => "company/index",
 		];
-		//$this->load->view('layout', $data);
+		$this->load->view('layout', $data);
 	}
 	
 	public function detail($company_id){
@@ -206,6 +166,24 @@ class Company extends CI_Controller {
 		$this->load->view('layout', $data);
 	}
 	
+	//usado en: index, detail
+	private function set_jw_factor($stock){
+		//danger = venta, success = compra, secondary = espera
+		//opacity 1 es senial fuerte
+		$stock->opacity = 0.5;
+		if (abs($stock->jw_factor) > 0.40){
+			if ($stock->sell_signal_qty > $stock->buy_signal_qty){
+				$stock->color = "danger";
+				if ($stock->last_year_per < 1) $stock->opacity = 1;
+			}else{
+				$stock->color = "success";
+				if ($stock->last_year_per > 0) $stock->opacity = 1;
+			}
+		}else $stock->color = "secondary";
+		
+		return $stock;
+	}
+	
 	//usado en: detail
 	private function get_var_per($stock){
 		if ($stock->close and $stock->yesterdayClose){
@@ -260,6 +238,7 @@ class Company extends CI_Controller {
 	//usado en: update_stocks_from_bvl
 	public function update_indicators($stock){
 		$stocks = $this->gm->filter("stock", ["nemonico" => $stock, "close > " => 0], null, null, [["date", "asc"]]);
+		if (!$stocks) return;
 		$result = $this->calculate_indicators($stocks);
 		$result_a = $this->indicator_analysis($stocks, $result);
 		
@@ -313,6 +292,7 @@ class Company extends CI_Controller {
 					"buy_signal_qty" => count($result_a["buy_signals"][$i]),
 					"sell_signal" => implode(",", $result_a["sell_signals"][$i]),
 					"sell_signal_qty" => count($result_a["sell_signals"][$i]),
+					"jw_factor" => round(abs($result["last_year"]["per"][$i] - 0.5) * (count($result_a["sell_signals"][$i]) - count($result_a["buy_signals"][$i])) / 5, 2),
 				];
 			}
 		}

@@ -1,0 +1,1 @@
+ALTER TABLE `stock` ADD `jw_factor` DECIMAL NOT NULL DEFAULT '0' AFTER `sell_signal_qty`; 
