@@ -127,6 +127,7 @@
 					<table class="table datatable">
 						<thead>
 							<tr>
+								<th scope="col">JW Factor</th>
 								<th scope="col">Fecha</th>
 								<th scope="col">Apertura</th>
 								<th scope="col">Min</th>
@@ -207,6 +208,7 @@
 								$vp = $s->var_per;
 							?>
 							<tr>
+								<td><i class="bi bi-circle-fill text-<?= $s->color ?>" style="--bs-text-opacity: <?= $s->opacity ?>;"></i><?= ($s->close > 0) ? number_format($s->jw_factor, 2) : "" ?><?= ($s->opacity == 1) ? " xx" : "" ?></td>
 								<td><?= $s->date ?></td>
 								<td><?= ($s->open > 0) ? $s->currencySymbol." ".$s->open : "" ?></td>
 								<td><?= ($s->low > 0) ? $s->currencySymbol." ".$s->low : "" ?></td>

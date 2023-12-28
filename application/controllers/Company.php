@@ -29,7 +29,10 @@ class Company extends CI_Controller {
 		
 		//4. cargar ultimos 6 meses de registros para armar resumen, arreglo con puntos segun jw_factor.
 		$arr_stocks = $resume = [];
-		foreach($companies as $c) if (in_array($c->company_id, $favorites)) $arr_stocks[] = $c->stock;
+		foreach($companies as $c) if (in_array($c->company_id, $favorites)){
+			$favorites[$c->stock] = $c->company_id;
+			$arr_stocks[] = $c->stock;
+		}
 		sort($arr_stocks);
 		foreach($arr_stocks as $ar) $resume[$ar] = [];
 		
@@ -152,7 +155,10 @@ class Company extends CI_Controller {
 		}else $last_stock = clone $stocks[0];
 		
 		$last_stock->var_per = $this->get_var_per($last_stock);
-		foreach($stocks as $s) $s->var_per = $this->get_var_per($s);
+		foreach($stocks as $s){
+			$s->var_per = $this->get_var_per($s);
+			$s = $this->set_jw_factor($s);
+		}
 		
 		$data = [
 			"company" => $company,
@@ -171,7 +177,7 @@ class Company extends CI_Controller {
 		//danger = venta, success = compra, secondary = espera
 		//opacity 1 es senial fuerte
 		$stock->opacity = 0.5;
-		if (abs($stock->jw_factor) > 0.40){
+		if (abs($stock->jw_factor) > 0.35){
 			if ($stock->sell_signal_qty > $stock->buy_signal_qty){
 				$stock->color = "danger";
 				if ($stock->last_year_per < 1) $stock->opacity = 1;

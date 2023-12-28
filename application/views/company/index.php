@@ -30,7 +30,15 @@
 						<tbody>
 							<?php foreach($resume as $stock => $r){ ?>
 							<tr>
-								<th scope="row"><?= $stock ?></th>
+								<td>
+									<i class="bi bi-star<?= (in_array($favorites[$stock], $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $favorites[$stock] ?>" value="<?= $favorites[$stock] ?>"></i>
+								</td>
+								<td>
+									<a href="<?= base_url() ?>company/detail/<?= $favorites[$stock] ?>">
+										<?= $stock ?>
+									</a>
+								</td>
+								<td><?= $r[0]->currencySymbol ?></td>
 								<td>
 									<?php $count = 0; foreach($r as $rr){ ?>
 										<i class="bi bi-circle-fill text-<?= $rr->color ?>" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="<?= $rr->date." [".$rr->jw_factor."] ".$rr->currencySymbol." ".$rr->close ?>" style="--bs-text-opacity: <?= $rr->opacity ?>;"></i>
