@@ -42,7 +42,7 @@
 								<td>
 									<?php $count = 0; foreach($r as $rr){ ?>
 										<i class="bi bi-circle-fill text-<?= $rr->color ?>" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="<?= $rr->date." [".$rr->jw_factor."] ".$rr->currencySymbol." ".$rr->close ?>" style="--bs-text-opacity: <?= $rr->opacity ?>;"></i>
-									<?php $count++; if ($count > 50) break;} ?>
+									<?php $count++; if ($count > 45) break;} ?>
 								</td>
 							</tr>
 							<?php } ?>

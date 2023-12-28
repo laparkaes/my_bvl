@@ -172,6 +172,70 @@ class Company extends CI_Controller {
 		$this->load->view('layout', $data);
 	}
 	
+	public function simulation(){
+		//1. si hay $stock, solo se simula una empresa. si no, prepara $stocks con todos los favoritos.
+		$stocks = $wallet = [];
+		
+		$stock = $this->input->get("stock");
+		if ($stock){
+			$stocks[] = $stock;
+			$wallet[$stock] = 1000;
+		}else{
+			$favorites = [];
+			$favorites_rec = $this->gm->all("favorite");
+			foreach($favorites_rec as $f) $favorites[] = $f->company_id;
+			
+			$companies = $this->gm->filter("company", null, null, [["field" => "company_id", "values" => $favorites]]);
+			foreach($companies as $c){
+				$stocks[] = $c->stock;
+				$wallet[$c->stock] = 1000;
+			}
+		}
+		
+		//2. definir comisiones de cada moneda
+		$sol_comision = 40; $dol_comision = 15;
+		
+		//3. cargar todos los registros 
+		$from = $this->input->get("from");
+		if (!$from) $from = date("Y-m-d", strtotime("-30 years", time()));
+		
+		$rec = $this->gm->filter("stock", ["date >=" => $from, "close >" => 0], null, [["field" => "nemonico", "values" => $stocks]], [["nemonico", "asc"], ["date", "asc"]]);
+		
+		
+		//4. definir parametros de simulacion
+		$last = "";//indicador de ultima accion: Venta o Compra
+		$step_wait = $step_buy = $step_sell = 0;//conteo de jw_factor
+		$counter_buy = $counter_sell = 0;//conteo de acciones consecutivas
+		foreach($rec as $r){
+			$check = "";
+			if (abs($r->jw_factor) >= 0.35){
+				$step_wait = 0;
+				if ($r->jw_factor > 0){$step_sell++; $step_buy = 0; $last = "V";}
+				else{$step_buy++; $step_sell = 0; $last = "C";}
+				
+				$check = "";
+			}else{
+				$step_wait++;
+				$step_buy = $step_sell = 0;
+			}
+			
+			if ($step_wait == 4){
+				if ($last == "V"){$check = "Venta"; $counter_sell++; $counter_buy = 0;}
+				elseif ($last == "C"){$check = "Compra"; $counter_buy++; $counter_sell = 0;}
+			}
+				
+			if ((($counter_sell + $counter_buy) == 1) and $check){
+				
+			echo $r->nemonico.", ".$r->date.", ".number_format($r->close, 3).", ".number_format($r->jw_factor, 2).", ";
+			//echo "[W".$step_wait.", C".$step_buy.", V".$step_sell."] ";
+			echo "[".$check."] x ".($counter_sell + $counter_buy);
+			echo "<br/>";
+			
+			}
+		}
+		
+	}
+	
 	//usado en: index, detail
 	private function set_jw_factor($stock){
 		//danger = venta, success = compra, secondary = espera
