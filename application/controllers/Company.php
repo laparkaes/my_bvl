@@ -197,38 +197,72 @@ class Company extends CI_Controller {
 		
 		//3. cargar todos los registros 
 		$from = $this->input->get("from");
-		if (!$from) $from = date("Y-m-d", strtotime("-30 years", time()));
+		if (!$from) $from = date("Y-m-d", strtotime("-6 years", time()));
 		
 		$rec = $this->gm->filter("stock", ["date >=" => $from, "close >" => 0], null, [["field" => "nemonico", "values" => $stocks]], [["nemonico", "asc"], ["date", "asc"]]);
 		
 		
 		//4. definir parametros de simulacion
-		$last = "";//indicador de ultima accion: Venta o Compra
+		$last = "";//indicador de ultima accion: Venta o Compra, se inicia con venta porque primera actividad debe ser compra luego
+		$step_max = $this->input->get("step_max"); if (!$step_max) $step_max = 4;//cuantos dias sin jw_factor esperar despues de apagado
+		
+		$loss_per = $this->input->get("loss_per"); if (!$loss_per) $loss_per = 0.1;//maxima perdida tolerable 10% por defecto
+		$gain_per = $this->input->get("gain_per"); if (!$gain_per) $gain_per = 0.3;//maxima ganancia aceptable 30% por defecto
+		
 		$step_wait = $step_buy = $step_sell = 0;//conteo de jw_factor
 		$counter_buy = $counter_sell = 0;//conteo de acciones consecutivas
-		foreach($rec as $r){
+		$price_limit_min = $price_limit_max = 0;//precio objetivo
+		
+		foreach($rec as $r){//determinar accion
+			//a. definir variable que indique la accion: $check = nada, venta o compra
 			$check = "";
-			if (abs($r->jw_factor) >= 0.35){
-				$step_wait = 0;
-				if ($r->jw_factor > 0){$step_sell++; $step_buy = 0; $last = "V";}
-				else{$step_buy++; $step_sell = 0; $last = "C";}
-				
-				$check = "";
-			}else{
-				$step_wait++;
-				$step_buy = $step_sell = 0;
+			
+			//b. revisar si precio de hoy esta dentro de rango de limite para vender
+			if (($price_limit_min <= $r->close) or ($r->close <= $price_limit_max)) $check = "venta";
+			else{
+				switch(true){//contar tipo de paso que se encuentra
+					case ($r->jw_factor <= 0.35):
+						$step_buy++;
+						$step_sell = 0;
+						$last = "C";
+						break;
+					case ($r->jw_factor >= 0.35):
+						$step_sell++;
+						$step_buy = 0;
+						$last = "V";
+						break;
+					default:
+						$step_wait++;
+						$step_buy = $step_sell = 0;
+				}
 			}
 			
-			if ($step_wait == 4){
-				if ($last == "V"){$check = "Venta"; $counter_sell++; $counter_buy = 0;}
-				elseif ($last == "C"){$check = "Compra"; $counter_buy++; $counter_sell = 0;}
+			
+			
+			if ($step_wait == $step_max){//ha esperado suficientes dias
+				switch($last){
+					case "V":
+						$check = "Venta";
+						$counter_sell++;
+						$counter_buy = 0;
+						$price_limit_min = $price_limit_max = 0;
+						break;
+					case "C":
+						$check = "Compra";
+						$counter_buy++;
+						$counter_sell = 0;
+						$price_limit_min = $r->close * (1 - $loss_per);
+						$price_limit_max = $r->close * (1 + $gain_per);
+						break;
+				}
 			}
 				
-			if ((($counter_sell + $counter_buy) == 1) and $check){
+			if ($check){
 				
 			echo $r->nemonico.", ".$r->date.", ".number_format($r->close, 3).", ".number_format($r->jw_factor, 2).", ";
 			//echo "[W".$step_wait.", C".$step_buy.", V".$step_sell."] ";
-			echo "[".$check."] x ".($counter_sell + $counter_buy);
+			echo "[".$check."] x ".($counter_sell + $counter_buy)." ... ";
+			echo $price_limit_min." ".$price_limit_max;
 			echo "<br/>";
 			
 			}
