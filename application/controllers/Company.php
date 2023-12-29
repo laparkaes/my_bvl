@@ -202,72 +202,92 @@ class Company extends CI_Controller {
 		$rec = $this->gm->filter("stock", ["date >=" => $from, "close >" => 0], null, [["field" => "nemonico", "values" => $stocks]], [["nemonico", "asc"], ["date", "asc"]]);
 		
 		
-		//4. definir parametros de simulacion
+		$result = $this->simulation_single($rec);
+		
+		print_R($result);
+		
+	}
+	
+	private function simulation_single($rec){
+		//1. lectura de parametros de usuario
+		$step_limit = $this->input->get("step_limit"); if (!$step_limit) $step_limit = 4;//cuantos dias sin jw_factor valido
+		
+		//1.1. rango de % que manejara
+		$loss_per = $this->input->get("loss_per") / 100; if (!$loss_per) $loss_per = 0.10;
+		$gain_per = $this->input->get("gain_per") / 100; if (!$gain_per) $gain_per = 0.50;
+		
+		//1.2. veces de acciones que se esperara
+		$count_buy_max = $this->input->get("count_buy_max"); if (!$count_buy_max) $count_buy_max = 1;
+		$count_sell_max = $this->input->get("count_sell_max"); if (!$count_sell_max) $count_sell_max = 1;
+		
+		//2. lectura de parametros de simulacion
 		$last = "";//indicador de ultima accion: Venta o Compra, se inicia con venta porque primera actividad debe ser compra luego
-		$step_max = $this->input->get("step_max"); if (!$step_max) $step_max = 4;//cuantos dias sin jw_factor esperar despues de apagado
-		
-		$loss_per = $this->input->get("loss_per"); if (!$loss_per) $loss_per = 0.1;//maxima perdida tolerable 10% por defecto
-		$gain_per = $this->input->get("gain_per"); if (!$gain_per) $gain_per = 0.3;//maxima ganancia aceptable 30% por defecto
-		
 		$step_wait = $step_buy = $step_sell = 0;//conteo de jw_factor
-		$counter_buy = $counter_sell = 0;//conteo de acciones consecutivas
-		$price_limit_min = $price_limit_max = 0;//precio objetivo
+		$price_limit_lower = $price_limit_upper = 0;//limites de precios objetivos despues de compra
+		$count_buy = $count_sell = 0;//conteo de cuantas acciones consecutivas va
 		
-		foreach($rec as $r){//determinar accion
+		//3. en accion se guardan datos
+		$actions = [];
+		foreach($rec as $r){
 			//a. definir variable que indique la accion: $check = nada, venta o compra
 			$check = "";
 			
-			//b. revisar si precio de hoy esta dentro de rango de limite para vender
-			if (($price_limit_min <= $r->close) or ($r->close <= $price_limit_max)) $check = "venta";
-			else{
-				switch(true){//contar tipo de paso que se encuentra
-					case ($r->jw_factor <= 0.35):
-						$step_buy++;
-						$step_sell = 0;
-						$last = "C";
-						break;
-					case ($r->jw_factor >= 0.35):
-						$step_sell++;
-						$step_buy = 0;
-						$last = "V";
-						break;
-					default:
-						$step_wait++;
-						$step_buy = $step_sell = 0;
-				}
+			//b. determinar accion
+			switch(true){//contar tipo de paso que se encuentra
+				case ($r->jw_factor < -0.35):
+					$step_buy++;
+					$step_sell = $step_wait = 0;
+					$last = "C";
+					break;
+				case ($r->jw_factor > 0.35):
+					$step_sell++;
+					$step_buy = $step_wait = 0;
+					$last = "V";
+					break;
+				default:
+					$step_wait++;
+					$step_buy = $step_sell = 0;
+					//$last = "W";
 			}
 			
-			
-			
-			if ($step_wait == $step_max){//ha esperado suficientes dias
+			//c. ha esperado suficientes dias desde la ultima senial de jw_factor
+			if ($step_wait == $step_limit){
 				switch($last){
-					case "V":
-						$check = "Venta";
-						$counter_sell++;
-						$counter_buy = 0;
-						$price_limit_min = $price_limit_max = 0;
-						break;
-					case "C":
-						$check = "Compra";
-						$counter_buy++;
-						$counter_sell = 0;
-						$price_limit_min = $r->close * (1 - $loss_per);
-						$price_limit_max = $r->close * (1 + $gain_per);
-						break;
+					case "V": $check = "venta"; break;
+					case "C": $check = "compra"; break;
 				}
 			}
-				
-			if ($check){
-				
-			echo $r->nemonico.", ".$r->date.", ".number_format($r->close, 3).", ".number_format($r->jw_factor, 2).", ";
-			//echo "[W".$step_wait.", C".$step_buy.", V".$step_sell."] ";
-			echo "[".$check."] x ".($counter_sell + $counter_buy)." ... ";
-			echo $price_limit_min." ".$price_limit_max;
-			echo "<br/>";
 			
+			//d. en caso que haya precios limites, validar si se fuerza la venta o no
+			if ($price_limit_lower and $price_limit_upper)
+				if (($r->close < $price_limit_lower) or ($r->close > $price_limit_upper)) $check = "venta";
+			
+			switch($check){
+				case "compra":
+					$count_buy++;
+					$count_sell = 0;
+					$price_limit_lower = $r->close * (1 - $loss_per);
+					$price_limit_upper = $r->close * (1 + $gain_per);
+					break;
+				case "venta":
+					$count_buy = 0;
+					$count_sell++;
+					$price_limit_lower = $price_limit_upper = 0;
+					break;
+			}
+			
+			//e. si hay accion y conteo de seniales validas, se ejecuta la accion
+			if ($check and (($count_buy == $count_buy_max) or ($count_sell == $count_sell_max))){//venta o compra
+				$act = new stdClass;
+				$act->action = $check;
+				$act->nemonico = $r->nemonico;
+				$act->date = $r->date;
+				$act->price = $r->close;
+				$actions[] = $act;
 			}
 		}
 		
+		return $actions;
 	}
 	
 	//usado en: index, detail
