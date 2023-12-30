@@ -174,12 +174,14 @@ class Company extends CI_Controller {
 	
 	public function simulation(){
 		//1. si hay $stock, solo se simula una empresa. si no, prepara $stocks con todos los favoritos.
-		$stocks = $wallet = [];
+		$stocks = $wallet = $records = $actions = [];
 		
 		$stock = $this->input->get("stock");
 		if ($stock){
 			$stocks[] = $stock;
-			$wallet[$stock] = 1000;
+			$records[$stock] = [];
+			$actions[$stock] = [];
+			$wallet[$stock] = ["amount" => 1000, "stocks" => 0];
 		}else{
 			$favorites = [];
 			$favorites_rec = $this->gm->all("favorite");
@@ -201,10 +203,21 @@ class Company extends CI_Controller {
 		
 		$rec = $this->gm->filter("stock", ["date >=" => $from, "close >" => 0], null, [["field" => "nemonico", "values" => $stocks]], [["nemonico", "asc"], ["date", "asc"]]);
 		
+		foreach($rec as $r) $records[$r->nemonico][] = $r;
 		
-		$result = $this->simulation_single($rec);
+		//$result = $this->simulation_single($rec);
 		
-		print_R($result);
+		//print_r($records);
+		
+		foreach($records as $stock => $r){
+			echo $stock."<br/>";
+			$actions[$stock] = $this->simulation_single($r);
+			foreach($actions[$stock] as $a){
+				print_r($a);
+				echo "<br/>";
+			}
+			echo "==========================<br/><br/><br/>";
+		}
 		
 	}
 	
@@ -279,10 +292,12 @@ class Company extends CI_Controller {
 			//e. si hay accion y conteo de seniales validas, se ejecuta la accion
 			if ($check and (($count_buy == $count_buy_max) or ($count_sell == $count_sell_max))){//venta o compra
 				$act = new stdClass;
-				$act->action = $check;
 				$act->nemonico = $r->nemonico;
 				$act->date = $r->date;
 				$act->price = $r->close;
+				$act->action = $check;
+				$act->limit_lower = $price_limit_lower;
+				$act->limit_upper = $price_limit_upper;
 				$actions[] = $act;
 			}
 		}
