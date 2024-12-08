@@ -91,14 +91,21 @@ class Load_bvl extends CI_Controller {
 				'segment' => property_exists($item, 'segment') ? $item->segment : null,
 			];
 			
-			//if ($stock['open']) 
-				$data[] = $stock;
+			$data[] = $stock;
 		}
 		
 		$this->gen_m->empty_t("today");
 		
 		$qty_new = $this->gen_m->insert_multi("today", $data);
 		echo number_format($qty_new)." today stock records updated. (".number_format(microtime(true) - $this->start_time, 2)." sec)";
+	}
+	
+	public function stock(){
+		$companies = $this->gen_m->all("company");
+		foreach($companies as $item){
+			print_r($item);
+			echo "<br/><br/>";
+		}
 	}
 	
 	//usado en: get_now, update_company
