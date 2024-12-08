@@ -109,6 +109,10 @@ class General_model extends CI_Model{
 		return $this->db->delete($tablename);
 	}
 	
+	function empty_t($tablename){
+		$this->db->truncate($tablename);
+	}
+	
 	function sum($tablename, $col, $filter = null){
 		$this->db->select_sum($col);
 		if ($filter) $this->db->where($filter);
