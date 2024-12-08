@@ -6,8 +6,8 @@ class Load_bvl extends CI_Controller {
 	public function __construct(){
 		parent::__construct();
 		set_time_limit(0);
-		$this->load->model('general_model','gm');
-		$this->load->model('stock_model','stock');
+		$this->start_time = microtime(true);
+		$this->load->model('general_model','gen_m');
 	}
 	
 	public function company(){
@@ -18,6 +18,7 @@ class Load_bvl extends CI_Controller {
 			"sectorCode" => "",
 		];
 		
+		$companies = [];
 		$res = $this->exec_curl($url, $data, true);
 		foreach($res as $item){
 			unset($item->memory);
@@ -25,19 +26,44 @@ class Load_bvl extends CI_Controller {
 			unset($item->index);
 			
 			if ($item->stock) foreach($item->stock as $stock){
-				$com = [
-					'code' => $item->companyCode,
-					'name' => $item->companyName,
-					'sector_code' => $item->sectorCode,
-					'sector_desc' => $item->sectorDescription,
-					'stock' => $stock,
-				];
-				
-				print_r($com);
-				echo "<br/>";
+				if ($stock){
+					$com = [
+						'code' => $item->companyCode,
+						'name' => $item->companyName,
+						'sector_code' => $item->sectorCode,
+						'sector_desc' => $item->sectorDescription,
+						'nemonico' => $stock,
+					];
+					
+					if (!$this->gen_m->filter("company", $com)) $companies[] = $com;
+				}
 			}
 		}
 		
+		$qty_new = $this->gen_m->insert_multi("company", $companies);
+		echo number_format($qty_new)." new companies created. (".number_format(microtime(true) - $this->start_time, 2)." sec)";
+	}
+	
+	public function last_stock(){
+		$url = "https://dataondemand.bvl.com.pe/v1/stock-quote/market";
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => "",
+			"sector" => "",
+			"today" => false,
+		];
+		
+		$res = $this->exec_curl($url, $data, true);
+		
+		$qty_up = $res->up;
+		$qty_down = $res->down;
+		$qty_equal = $res->equal;
+		
+		$stocks = $res->content;
+		foreach($stocks as $item){
+			print_r($item);
+			echo "<br/><br/>";
+		}
 	}
 
 	public function index(){
@@ -144,60 +170,6 @@ class Load_bvl extends CI_Controller {
 		];
 		
 		return $this->exec_curl($url, $data, true);
-	}
-	
-	//usado en: home/index
-	public function update_company(){
-		$url = "https://dataondemand.bvl.com.pe/v1/issuers/search";
-		$data = [
-			"companyName" => "",
-			"firstLetter" => "",
-			"sectorCode" => "",
-		];
-		
-		$sectors_string = $companies = $memories = [];
-		
-		$result = $this->exec_curl($url, $data, true);
-		foreach($result as $c){
-			$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
-			if (!$sector){
-				$this->gm->insert("sector", ["sectorCode" => $c->sectorCode, "sectorDescription" => $c->sectorDescription]);
-				$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
-			}
-			
-			$company = [
-				"companyCode" => $c->companyCode,
-				"companyName" => $c->companyName,
-				"sector_id" => $sector->sector_id,
-			];
-			
-			if ($c->stock){
-				$stocks = $c->stock;
-				foreach($stocks as $s){
-					if (!$s) $s = null;
-					$company["stock"] = $s;
-					if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
-				}
-			}else{
-				$company["stock"] = null;
-				if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
-			}
-			
-			$memories_aux = $c->memory;
-			if ($memories_aux) foreach($memories_aux as $m){
-				$memory = [
-					"rpjCode" => $m->rpjCode,
-					"companyName" => $m->companyName,
-					"year" => $m->year,
-					"document" => $m->document,
-					"date" => $m->date,
-					"path" => $m->path,
-				];
-				if (!$this->gm->filter("memory", $memory)) $this->gm->insert("memory", $memory);
-			}
-		}
-		
-		echo "Fin de actualizacion de empresas.<br/>";
 	}
 	
 	//usado en: get_now, update_company
