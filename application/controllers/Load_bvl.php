@@ -50,7 +50,7 @@ class Load_bvl extends CI_Controller {
 			"companyCode" => "",
 			"inputCompany" => "",
 			"sector" => "",
-			"today" => true,
+			"today" => false,
 		];
 		
 		$res = $this->exec_curl($url, $data, true);
@@ -101,11 +101,42 @@ class Load_bvl extends CI_Controller {
 	}
 	
 	public function stock(){
+		$to = date('Y-m-d');
+		$qty_new = 0;
+		
+		$data = [];
 		$companies = $this->gen_m->all("company");
-		foreach($companies as $item){
-			print_r($item);
-			echo "<br/><br/>";
+		foreach($companies as $i_com => $com){
+			$last_stock = $this->gen_m->filter("history", ["nemonico" => $com->nemonico], null, null, [["date", "desc"]], 1, 0);
+			$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
+			
+			$load_bvl = true;
+			if ($today){
+				if ($today[0]->date_previous === null) $load_bvl = false;
+				elseif ($last_stock) if ($last_stock[0]->date === $today[0]->date_previous) $load_bvl = false;
+			}
+			
+			if ($load_bvl){
+				$from = $last_stock ? date("Y-m-d", strtotime("+1 day", strtotime($last_stock[0]->date))) : "2000-01-01";
+				
+				$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$com->nemonico."?startDate=".$from."&endDate=".$to;
+				$res = $this->exec_curl($url, null, false);
+				
+				foreach($res as $stock){
+					unset($stock->id);
+					if ($stock->quantityNegotiated) $data[] = (array) $stock;
+				}
+				
+				if (count($data) > 5000){
+					$qty_new += $this->gen_m->insert_multi("history", $data);
+					$data = [];
+				}
+			}
 		}
+		
+		if ($data) $qty_new += $this->gen_m->insert_multi("history", $data);
+		
+		echo number_format($qty_new)." stock history records inserted. (".number_format(microtime(true) - $this->start_time, 2)." sec)";
 	}
 	
 	//usado en: get_now, update_company
