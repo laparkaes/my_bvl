@@ -10,6 +10,12 @@ class Load_bvl extends CI_Controller {
 		$this->load->model('general_model','gen_m');
 	}
 	
+	public function general(){
+		echo $this->company()."<br/>";
+		echo $this->today()."<br/>";
+		echo $this->history()."<br/>";
+	}
+	
 	public function company(){
 		$url = "https://dataondemand.bvl.com.pe/v1/issuers/search";
 		$data = [
@@ -100,24 +106,24 @@ class Load_bvl extends CI_Controller {
 		echo number_format($qty_new)." today stock records updated. (".number_format(microtime(true) - $this->start_time, 2)." sec)";
 	}
 	
-	public function stock(){
+	public function history($is_quick = false){
 		$to = date('Y-m-d');
 		$qty_new = 0;
 		
+		$w = $is_quick ? ["record_count >=" => 1000, "max_date >=" => date("Y-m-d", strtotime("-1 month"))] : [];
+		
 		$data = [];
-		$companies = $this->gen_m->all("company");
+		$companies = $this->gen_m->filter("history_counter", $w);
 		foreach($companies as $i_com => $com){
-			$last_stock = $this->gen_m->filter("history", ["nemonico" => $com->nemonico], null, null, [["date", "desc"]], 1, 0);
-			$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
-			
 			$load_bvl = true;
+			$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
 			if ($today){
 				if ($today[0]->date_previous === null) $load_bvl = false;
-				elseif ($last_stock) if ($last_stock[0]->date === $today[0]->date_previous) $load_bvl = false;
+				elseif ($com->max_date) if ($com->max_date === $today[0]->date_previous) $load_bvl = false;
 			}
 			
 			if ($load_bvl){
-				$from = $last_stock ? date("Y-m-d", strtotime("+1 day", strtotime($last_stock[0]->date))) : "2000-01-01";
+				$from = $com->max_date ? date("Y-m-d", strtotime("+1 day", strtotime($com->max_date))) : "2000-01-01";
 				
 				$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$com->nemonico."?startDate=".$from."&endDate=".$to;
 				$res = $this->exec_curl($url, null, false);
@@ -132,6 +138,8 @@ class Load_bvl extends CI_Controller {
 					$data = [];
 				}
 			}
+			
+			if ($i_com > 10) break;
 		}
 		
 		if ($data) $qty_new += $this->gen_m->insert_multi("history", $data);
