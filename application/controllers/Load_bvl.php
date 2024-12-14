@@ -114,7 +114,7 @@ class Load_bvl extends CI_Controller {
 		$qty_new = 0;
 		
 		$data = [];
-		$companies = $this->gen_m->filter("history_counter");
+		$companies = $this->gen_m->all("history_counter");
 		foreach($companies as $i_com => $com){
 			$load_bvl = true;
 			$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
@@ -149,7 +149,14 @@ class Load_bvl extends CI_Controller {
 	}
 	
 	public function technical(){
-		$tech = $this->update_indicators("ENGIEC1");
+		$nemonico = "ENGIEC1";
+		
+		$tech = $this->update_indicators($nemonico);
+		if ($tech){
+			$this->gen_m->delete("technical_analysis", ["nemonico" => $nemonico]);
+			$qty_new = $this->gen_m->insert_multi("technical_analysis", $tech);
+			if ($qty_new) echo $nemonico.": ".number_format($qty_new)." records (".$tech[0]["date"]." ~ ".$tech[count($tech)-1]["date"].").<br/>";
+		}
 		
 		foreach($tech as $item){
 			print_r($item); echo "<br/><br/>";
