@@ -14,9 +14,14 @@ class Load_bvl extends CI_Controller {
 	}
 	
 	public function general(){
+		set_time_limit(0);
+		
 		echo $this->company()."<br/>";
 		echo $this->today()."<br/>";
 		echo $this->history()."<br/>";
+		echo $this->run_technical()."<br/>";
+		echo "<br/>";
+		echo "Total Runtime: ".number_format(microtime(true) - $this->start_time, 2)." sec";
 	}
 	
 	public function company(){
@@ -148,28 +153,47 @@ class Load_bvl extends CI_Controller {
 		echo number_format($qty_new)." stock history records inserted. (".number_format(microtime(true) - $this->start_time, 2)." sec)";
 	}
 	
-	public function technical(){
-		$nemonico = "ENGIEC1";
+	public function run_technical($is_all = false){
+		//is_all = 1 경우에는 예외없이 모든 기업 데이터 로드
+		
+		$res = [];
+		
+		$companies = $this->gen_m->all("history_counter", [["factor", "desc"]]);
+		foreach($companies as $item){
+			if (($is_all) or (($item->record_count > 0) and ($item->factor > 0.3) and ($item->record_count > 1000))){
+				//print_r($item); echo "<br/>";
+				
+				$res_ind = $this->technical($item->nemonico);
+				if ($res_ind) $res[] = $res_ind;
+			}
+		}
+		
+		echo "<table style='width: 500px;'>";
+		echo "<tr><td>Num</td><td>Nemonico</td><td>Qty</td><td>From</td><td>To</td></tr>";
+		foreach($res as $i => $item) echo "<tr><td>".$i."</td><td>".$item["nemonico"]."</td><td>".$item["qty"]."</td><td>".$item["from"]."</td><td>".$item["to"]."</td></tr>";
+		echo "</table>";
+	}
+	
+	public function technical($nemonico = "ENGIEC1"){
+		$result = [];
 		
 		$tech = $this->update_indicators($nemonico);
 		if ($tech){
 			$this->gen_m->delete("technical_analysis", ["nemonico" => $nemonico]);
-			$qty_new = $this->gen_m->insert_multi("technical_analysis", $tech);
-			if ($qty_new) echo $nemonico.": ".number_format($qty_new)." records (".$tech[0]["date"]." ~ ".$tech[count($tech)-1]["date"].").<br/>";
+			$qty = $this->gen_m->insert_multi("technical_analysis", $tech);
+			//if ($qty) echo $nemonico.": ".number_format($qty)." records (".$tech[0]["date"]." ~ ".$tech[count($tech)-1]["date"].").<br/>";
+			if ($qty) $result = ["nemonico" => $nemonico, "qty" => $qty, "from" => $tech[0]["date"], "to" => $tech[count($tech)-1]["date"]];
 		}
 		
-		foreach($tech as $item){
-			print_r($item); echo "<br/><br/>";
-		}
+		return $result;
 	}
-
 
 	//usado en: update_stocks_from_bvl
 	public function update_indicators($nemonico){
 		$histories = $this->gen_m->filter("history", ["nemonico" => $nemonico, "close > " => 0], null, null, [["date", "asc"]]);
 		$today = $this->gen_m->unique("today", "nemonico", $nemonico);
 		
-		if ($today->open){
+		if ($today) if (property_exists($today, 'open')) if ($today->open){
 			if ($today->date_previous === $histories[count($histories)-1]->date){
 				$record = $this->gen_m->structure("history");
 				$record->nemonico = $today->nemonico;
