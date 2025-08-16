@@ -1,5 +1,15 @@
 <div class="pagetitle mb-3">
-	<h1>Empresas</h1>
+	<div class="d-flex justify-content-between">
+		<h1>Empresas</h1>
+		<div>
+			<a class="btn btn-primary btn-sm" href="<?= base_url() ?>company/update_list" target="_blank">
+				Actualizar Lista
+			</a>
+			<a class="btn btn-primary btn-sm" href="<?= base_url() ?>company/update_history" target="_blank">
+				Actualizar Historia
+			</a>
+		</div>
+	</div>
 </div>
 <section class="section">
 	<div class="row">
@@ -25,7 +35,8 @@
 			<?php }
 			} ?>
 			<div class="card">
-				<div class="card-body p-3">
+				<div class="card-body">
+					<h5 class="card-title">Favoritos</h5>
 					<table class="table table-striped">
 						<tbody>
 							<?php foreach($resume as $stock => $r){ ?>
@@ -41,7 +52,7 @@
 								<td><?= $r[0]->currencySymbol ?></td>
 								<td>
 									<?php $count = 0; foreach($r as $rr){ ?>
-										<i class="bi bi-circle-fill text-<?= $rr->color ?>" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="<?= $rr->date." [".$rr->jw_factor."] ".$rr->currencySymbol." ".$rr->close ?>" style="--bs-text-opacity: <?= $rr->opacity ?>;"></i>
+										<i class="bi bi-circle-fill text-<?= $rr->tech->color ?>" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="<?= $rr->date." [".$rr->tech->jw_factor."] ".$rr->currencySymbol." ".$rr->close ?>" style="--bs-text-opacity: <?= $rr->tech->opacity ?>;"></i>
 									<?php $count++; if ($count > 45) break;} ?>
 								</td>
 							</tr>
@@ -74,11 +85,11 @@
 									</td>
 									<td>
 										<a href="<?= base_url() ?>company/detail/<?= $c->company_id ?>">
-											<?= $c->companyName ?>
+											<?= $c->name ?>
 										</a>
 									</td>
-									<td><?= $sectors[$c->sector_id] ?></td>
-									<td><?= $c->stock ?></td>
+									<td><?= $sectors[$c->sector_code] ?></td>
+									<td><?= $c->nemonico ?></td>
 									<td><?= number_format($c->qty_total) ?></td>
 									<td><?= number_format($c->qty_this_year) ?></td>
 									<td><?= number_format($c->qty_last_year) ?></td>

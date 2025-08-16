@@ -14,9 +14,9 @@ class Home extends CI_Controller {
 		//1. cargar ultimos registros de cada empresa
 		$dates = [];
 		
-		//2. ordenar en un $dates[nemonico][last_date] = fecha
-		$last_stocks = $this->stock->get_last_stocks();//cargar ultimos registros de cada empresa desde DB
-		foreach($last_stocks as $ls) $dates[$ls->nemonico]["last_date"] = $ls->last_date;
+		//2. ordenar en un $dates[nemonico][date] = fecha
+		$last_stocks = $this->gm->all_simple("history_recent", "date", "desc");//cargar ultimos registros de cada empresa desde DB
+		foreach($last_stocks as $ls) $dates[$ls->nemonico]["last_date"] = $ls->date;
 		
 		//3. cargar movimientos de hoy desde bvl
 		$stocks_d = $stocks_f = []; //arreglos para guardar empresas nacionales y extranjeras
@@ -41,9 +41,12 @@ class Home extends CI_Controller {
 			foreach($companies as $c) if ($c->stock) $updates[] = ["stock" => $c->stock, "date" => ""];	
 		}else{
 			foreach($dates as $stock => $ms)
-				if (array_key_exists('previousDate', $ms))
+				if (array_key_exists('previousDate', $ms)){
+					if (!array_key_exists('last_date', $ms)) $ms["last_date"] = "2000-01-01";
 					if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"]))
 						$updates[] = ["stock" => $stock, "date" => $ms["last_date"]];	
+				}
+					
 		}
 		
 		//6. evaluar cantidad de elementos de $companies
@@ -59,7 +62,14 @@ class Home extends CI_Controller {
 			//6.2.1. set favorites
 			$favorites = [];
 			$favorites_rec = $this->gm->all("favorite");
-			foreach($favorites_rec as $f) $favorites[] = $f->company_id;
+			foreach($favorites_rec as $f){
+				$favorites[] = $f->company_id;
+				/*
+				$com = $this->gm->unique("company", "company_id", $f->company_id);
+				if ($com) $favorites[] = $com->nemonico;
+				else $this->gm->delete("favorite", ["company_id" => $f->company_id]);
+				*/
+			}
 			
 			$data = [
 				"favorites" => $favorites,
@@ -68,6 +78,7 @@ class Home extends CI_Controller {
 			];
 		}
 		
+		//foreach($data["companies"] as $item){ print_r($item->data); echo "<br/><br/><br/>"; }
 		$this->load->view('layout', $data);
 	}
 
@@ -97,7 +108,10 @@ class Home extends CI_Controller {
 					break;
 				default: $c->color = "";
 			}
-			$c->data = $this->gm->unique("company", "stock", $c->nemonico);
+			
+			$company = $this->gm->unique("company", "nemonico", $c->nemonico);
+			if ($company) $c->data = $company;
+			else redirect("/load_bvl/company"); //no company record
 		}
 		
 		return $companies;
@@ -115,62 +129,8 @@ class Home extends CI_Controller {
 		
 		return $this->exec_curl($url, $data, true);
 	}
-	
-	//usado en: home/index
-	public function update_company(){
-		$url = "https://dataondemand.bvl.com.pe/v1/issuers/search";
-		$data = [
-			"companyName" => "",
-			"firstLetter" => "",
-			"sectorCode" => "",
-		];
-		
-		$sectors_string = $companies = $memories = [];
-		
-		$result = $this->exec_curl($url, $data, true);
-		foreach($result as $c){
-			$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
-			if (!$sector){
-				$this->gm->insert("sector", ["sectorCode" => $c->sectorCode, "sectorDescription" => $c->sectorDescription]);
-				$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
-			}
-			
-			$company = [
-				"companyCode" => $c->companyCode,
-				"companyName" => $c->companyName,
-				"sector_id" => $sector->sector_id,
-			];
-			
-			if ($c->stock){
-				$stocks = $c->stock;
-				foreach($stocks as $s){
-					if (!$s) $s = null;
-					$company["stock"] = $s;
-					if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
-				}
-			}else{
-				$company["stock"] = null;
-				if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
-			}
-			
-			$memories_aux = $c->memory;
-			if ($memories_aux) foreach($memories_aux as $m){
-				$memory = [
-					"rpjCode" => $m->rpjCode,
-					"companyName" => $m->companyName,
-					"year" => $m->year,
-					"document" => $m->document,
-					"date" => $m->date,
-					"path" => $m->path,
-				];
-				if (!$this->gm->filter("memory", $memory)) $this->gm->insert("memory", $memory);
-			}
-		}
-		
-		echo "Fin de actualizacion de empresas.<br/>";
-	}
-	
-	//usado en: get_now, update_company
+
+	//usado en: update_stocks_from_bvl
 	private function exec_curl($url, $datas = null, $is_post = false){
 		if ($is_post){
 			$datas = json_encode($datas);
@@ -193,4 +153,5 @@ class Home extends CI_Controller {
 		
 		if ($res) return json_decode($res); else return null;
 	}
+
 }

@@ -36,16 +36,6 @@
 						<i class="bi bi-buildings"></i>
 					</a>
 				</li>
-				<li class="nav-item">
-					<a class="nav-link nav-icon" href="<?= base_url() ?>home/content">
-						<i class="bi bi-file-earmark-text"></i>
-					</a>
-				</li>
-				<li class="nav-item">
-					<a class="nav-link nav-icon" href="<?= base_url() ?>home/email_db">
-						<i class="bi bi-database"></i>
-					</a>
-				</li>
 			</ul>
 		</nav>
 	</header>

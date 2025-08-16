@@ -22,23 +22,24 @@ class Company extends CI_Controller {
 		//2. armar arreglo de sectores
 		$sectors = [];
 		$sectors_rec = $this->gm->all("sector");
-		foreach($sectors_rec as $s) $sectors[$s->sector_id] = $s->sectorDescription;
+		foreach($sectors_rec as $s) $sectors[$s->sectorCode] = $s->sectorDescription;
 		
 		//3. cargar todas las companias con registros de stock
-		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["qty_last_year", "desc"], ["companyName", "asc"]]);
+		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["qty_last_year", "desc"], ["name", "asc"]]);
 		
 		//4. cargar ultimos 6 meses de registros para armar resumen, arreglo con puntos segun jw_factor.
 		$arr_stocks = $resume = [];
 		foreach($companies as $c) if (in_array($c->company_id, $favorites)){
-			$favorites[$c->stock] = $c->company_id;
-			$arr_stocks[] = $c->stock;
+			$favorites[$c->nemonico] = $c->company_id;
+			$arr_stocks[] = $c->nemonico;
 		}
+		
 		sort($arr_stocks);
 		foreach($arr_stocks as $ar) $resume[$ar] = [];
 		
 		$w = ["date >=" => date('Y-m-d', strtotime('-6 months', time())), "date <=" => date('Y-m-d'), "close >" => 0];
 		$w_in = [["field" => "nemonico", "values" => $arr_stocks]];
-		$stocks = $this->gm->filter("stock", $w, null, $w_in, [["nemonico", "asc"], ["date", "desc"]]);
+		$stocks = $this->gm->filter("history", $w, null, $w_in, [["nemonico", "asc"], ["date", "desc"]]);
 		foreach($stocks as $stock) $resume[$stock->nemonico][] = $this->set_jw_factor($stock);
 		
 		$data = [
@@ -62,13 +63,13 @@ class Company extends CI_Controller {
 			redirect("/company");
 		}
 		
-		$company->sector = $this->gm->unique("sector", "sector_id", $company->sector_id);
-		$memories = $this->gm->filter("memory", ["companyName" => $company->companyName], null, null, [["date", "desc"]]);
-		$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
+		//$company->sector = $this->gm->unique("sector", "sector_id", $company->sector_id);
+		//$memories = $this->gm->filter("memory", ["companyName" => $company->companyName], null, null, [["date", "desc"]]);
+		$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico], null, null, [["date", "desc"]]);
 		
 		$data = [
 			"companyCode" => "",
-			"inputCompany" => $company->stock,
+			"inputCompany" => $company->nemonico,
 			"sector" => "",
 			"today" => false,
 		];
@@ -84,18 +85,18 @@ class Company extends CI_Controller {
 					if (strtotime($last_stock->previousDate) > strtotime($stocks[0]->date)){
 						//update all stock records
 						if ($last_stock) $from = $stocks[0]->date; else $from = "1999-01-01";
-						$this->update_stocks_from_bvl($company->stock, $from);
+						$this->update_stocks_from_bvl($company->nemonico, $from);
 						//update indicators if there is new record
 						
-						$stocks = $this->gm->filter("stock", ["nemonico" => $company->stock], null, null, [["date", "desc"]]);
+						$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico], null, null, [["date", "desc"]]);
 					}
 					
 					$last_stock = $this->convert_today_to_record($last_stock);
 					if ($last_stock->close) array_unshift($stocks, $last_stock);
 					else $last_stock = clone $stocks[0];
 					
-					if (!$last_stock->is_calculated){
-						$stocks_aux = array_reverse($this->gm->filter("stock", ["nemonico" => $company->stock, "close >" => 0], null, null, [["date", "desc"]], 500, 0));//today value has 499 as index
+					if (!$last_stock->history_id){
+						$stocks_aux = array_reverse($this->gm->filter("history", ["nemonico" => $company->nemonico, "close >" => 0], null, null, [["date", "desc"]], 500, 0));//today value has 499 as index
 						
 						$stocks_aux[] = $last_stock;
 						$result = $this->calculate_indicators($stocks_aux);
@@ -159,7 +160,7 @@ class Company extends CI_Controller {
 			$s->var_per = $this->get_var_per($s);
 			$s = $this->set_jw_factor($s);
 		}
-		
+		echo "aqui"; return;
 		$data = [
 			"company" => $company,
 			"memories" => $memories,
@@ -170,6 +171,123 @@ class Company extends CI_Controller {
 			"main" => "company/detail",
 		];
 		$this->load->view('layout', $data);
+	}
+	
+	//usado en: home/index
+	public function update_list(){
+		$url = "https://dataondemand.bvl.com.pe/v1/issuers/search";
+		$data = [
+			"companyName" => "",
+			"firstLetter" => "",
+			"sectorCode" => "",
+		];
+		
+		$sectors_string = $companies = $memories = [];
+		
+		$result = $this->exec_curl($url, $data, true);
+		foreach($result as $c){
+			$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
+			if (!$sector){
+				$this->gm->insert("sector", ["sectorCode" => $c->sectorCode, "sectorDescription" => $c->sectorDescription]);
+				$sector = $this->gm->unique("sector", "sectorCode", $c->sectorCode);
+			}
+			
+			$company = [
+				"code" => $c->companyCode,
+				"name" => $c->companyName,
+				"sector_code" => $c->sectorCode,
+			];
+			
+			if ($c->stock){
+				$stocks = $c->stock;
+				foreach($stocks as $s){
+					if (!$s) $s = null;
+					$company["nemonico"] = $s;
+					if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
+				}
+			}else{
+				$company["nemonico"] = null;
+				if (!$this->gm->filter("company", $company)) $this->gm->insert("company", $company);
+			}
+			
+			$memories_aux = $c->memory;
+			if ($memories_aux) foreach($memories_aux as $m){
+				$memory = [
+					"rpjCode" => $m->rpjCode,
+					"companyName" => $m->companyName,
+					"year" => $m->year,
+					"document" => $m->document,
+					"date" => $m->date,
+					"path" => $m->path,
+				];
+				if (!$this->gm->filter("memory", $memory)) $this->gm->insert("memory", $memory);
+			}
+		}
+		
+		echo "Fin de actualizacion de empresas.<br/>";
+	}
+	
+	public function update_history(){
+		//1. cargar ultimos registros de cada empresa
+		$dates = [];
+		
+		//2. ordenar en un $dates[nemonico][date] = fecha
+		$last_stocks = $this->gm->all_simple("history_recent", "date", "desc");//cargar ultimos registros de cada empresa desde DB
+		foreach($last_stocks as $ls) $dates[$ls->nemonico]["last_date"] = $ls->date;
+		
+		//3. cargar movimientos de hoy desde bvl
+		$stocks_d = $stocks_f = []; //arreglos para guardar empresas nacionales y extranjeras
+		$stocks_now = $this->get_now(true);//cargar registros de hoy desde bvl
+		$stocks = $stocks_now->content;//en content guardan los registros
+		foreach($stocks as $s){
+			if (property_exists($s, 'sectorCode')) $stocks_d[] = $s;//nacional
+			else $stocks_f[] = $s;//extranjera
+		}
+		
+		//4. ordenar en el mismo $dates[nemonico][previousDate] = valor
+		foreach($stocks_d as $s){//solo trabajare con nacionales
+			//debe existir propiedad dia anterior. En caso contrario, es primer dia que se presenta movimiento
+			if (property_exists($s, 'previousDate')) $dates[$s->nemonico]["previousDate"] = $s->previousDate;
+			//else unset($dates[$s->nemonico]);
+		}
+		
+		//5. armar arreglo de actualizaciones en $updates = ["stock" =>, "date" =>]
+		$updates = [];
+		if ($this->input->get("all_update")){//variable que manda si quiere actualizacion general. ?all_update=1
+			$companies = $this->gm->filter("company", null, null, null, [["companyName", "asc"]]);
+			foreach($companies as $c) if ($c->stock) $updates[] = ["stock" => $c->stock, "date" => ""];	
+		}else{
+			foreach($dates as $stock => $ms)
+				if (array_key_exists('previousDate', $ms)){
+					if (!array_key_exists('last_date', $ms)) $ms["last_date"] = "2000-01-01";
+					if (strtotime($ms["last_date"]) < strtotime($ms["previousDate"]))
+						$updates[] = ["stock" => $stock, "date" => $ms["last_date"]];	
+				}
+					
+		}
+		
+		//6. evaluar cantidad de elementos de $companies
+		foreach($updates as $item){
+			$qty = $this->update_stocks_from_bvl($item["stock"], $item["date"]);
+			echo ($item["stock"]." (".number_format($qty).")")."<br/>";
+			
+			//print_r($item); echo "<br/>";
+			break;
+		}
+		
+		echo "<br/>Actualizacion finalizada.";
+	}
+	
+	private function get_now($is_today){
+		$url = "https://dataondemand.bvl.com.pe/v1/stock-quote/market";
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => "",
+			"sector" => "",
+			"today" => $is_today,
+		];
+		
+		return $this->exec_curl($url, $data, true);
 	}
 	
 	public function simulation(){
@@ -307,18 +425,24 @@ class Company extends CI_Controller {
 	
 	//usado en: index, detail
 	private function set_jw_factor($stock){
+		$tech = $this->gm->unique("technical_analysis", "history_id", $stock->history_id);
+		if ($tech) $stock->tech = $tech;
+		else $stock->tech = $this->gm->structure("technical_analysis");
+		
+		//print_r($stock); echo "<br/><br/>";
+		
 		//danger = venta, success = compra, secondary = espera
 		//opacity 1 es senial fuerte
-		$stock->opacity = 0.5;
-		if (abs($stock->jw_factor) > 0.35){
-			if ($stock->sell_signal_qty > $stock->buy_signal_qty){
-				$stock->color = "danger";
-				if ($stock->last_year_per < 1) $stock->opacity = 1;
+		$stock->tech->opacity = 0.5;
+		if (abs($stock->tech->jw_factor) > 0.35){
+			if ($stock->tech->sell_signal_qty > $stock->tech->buy_signal_qty){
+				$stock->tech->color = "danger";
+				if ($stock->tech->last_year_per < 1) $stock->tech->opacity = 1;
 			}else{
-				$stock->color = "success";
-				if ($stock->last_year_per > 0) $stock->opacity = 1;
+				$stock->tech->color = "success";
+				if ($stock->tech->last_year_per > 0) $stock->tech->opacity = 1;
 			}
-		}else $stock->color = "secondary";
+		}else $stock->tech->color = "secondary";
 		
 		return $stock;
 	}
@@ -340,8 +464,8 @@ class Company extends CI_Controller {
 	
 	//usado en: detail
 	private function convert_today_to_record($today){
-		$record = $this->gm->structure("stock");
-		$record->stock_id = 0;
+		$record = $this->gm->structure("history");
+		$record->history_id = 0;
 		$record->nemonico = $today->nemonico;
 		$record->date = date("Y-m-d", strtotime($today->createdDate));
 		$record->open = (property_exists($today, 'opening')) ? $today->opening : null;
@@ -355,7 +479,7 @@ class Company extends CI_Controller {
 		$record->yesterday = $today->previousDate;
 		$record->yesterdayClose = $today->previous;
 		$record->currencySymbol = $today->currency;
-		
+
 		return $record;
 	}
 	
@@ -375,68 +499,83 @@ class Company extends CI_Controller {
 	}
 	
 	//usado en: update_stocks_from_bvl
-	public function update_indicators($stock){
-		$stocks = $this->gm->filter("stock", ["nemonico" => $stock, "close > " => 0], null, null, [["date", "asc"]]);
+	public function update_indicators($nemonico){
+		$stocks = $this->gm->filter("history", ["nemonico" => $nemonico, "close > " => 0], null, null, [["date", "asc"]]);
 		if (!$stocks) return;
 		$result = $this->calculate_indicators($stocks);
 		$result_a = $this->indicator_analysis($stocks, $result);
 		
 		$indicators = [];
 		foreach($stocks as $i => $s){
-			if (!$s->is_calculated){
-				$indicators[] = [
-					"stock_id" => $s->stock_id,
-					"is_calculated" => true,
-					"adx" => round($result["adx"]["adx"][$i], 3),
-					"adx_pdi" => round($result["adx"]["pdi"][$i], 3),
-					"adx_mdi" => round($result["adx"]["mdi"][$i], 3),
-					"atr" => round($result["atr"][$i], 3),
-					"bb_u" => round($result["bb"]["uppers"][$i], 3),
-					"bb_m" => round($result["bb"]["middles"][$i], 3),
-					"bb_l" => round($result["bb"]["lowers"][$i], 3),
-					"cci" => round($result["cci"][$i], 3),
-					"ema_5" => round($result["ema"]["ema_5"][$i], 3),
-					"ema_20" => round($result["ema"]["ema_20"][$i], 3),
-					"ema_60" => round($result["ema"]["ema_60"][$i], 3),
-					"ema_120" => round($result["ema"]["ema_120"][$i], 3),
-					"ema_200" => round($result["ema"]["ema_200"][$i], 3),
-					"env_u" => round($result["env"]["uppers"][$i], 3),
-					"env_l" => round($result["env"]["lowers"][$i], 3),
-					"ich_a" => round($result["ich"]["span_a"][$i], 3),
-					"ich_b" => round($result["ich"]["span_b"][$i], 3),
-					"macd" => round($result["macd"]["macd"][$i], 3),
-					"macd_sig" => round($result["macd"]["macd_sig"][$i], 3),
-					"macd_div" => round($result["macd"]["macd_div"][$i], 3),
-					"mfi" => round($result["mfi"][$i], 3),
-					"mom" => round($result["mom"]["mom"][$i], 3),
-					"mom_sig" => round($result["mom"]["mom_signal"][$i], 3),
-					"psar" => round($result["psar"][$i], 3),
-					"pch_u" => round($result["pch"]["uppers"][$i], 3),
-					"pch_l" => round($result["pch"]["lowers"][$i], 3),
-					"ppo" => round($result["ppo"][$i], 3),
-					"rsi" => round($result["rsi"][$i], 3),
-					"sma_5" => round($result["sma"]["sma_5"][$i], 3),
-					"sma_20" => round($result["sma"]["sma_20"][$i], 3),
-					"sma_60" => round($result["sma"]["sma_60"][$i], 3),
-					"sma_120" => round($result["sma"]["sma_120"][$i], 3),
-					"sma_200" => round($result["sma"]["sma_200"][$i], 3),
-					"sto_k" => round($result["sto"]["k"][$i], 3),
-					"sto_d" => round($result["sto"]["d"][$i], 3),
-					"trix" => round($result["trix"]["trix"][$i], 3),
-					"trix_sig" => round($result["trix"]["trix_signal"][$i], 3),
-					"last_year_min" => $result["last_year"]["min"][$i],
-					"last_year_max" => $result["last_year"]["max"][$i],
-					"last_year_per" => $result["last_year"]["per"][$i],
-					"buy_signal" => implode(",", $result_a["buy_signals"][$i]),
-					"buy_signal_qty" => count($result_a["buy_signals"][$i]),
-					"sell_signal" => implode(",", $result_a["sell_signals"][$i]),
-					"sell_signal_qty" => count($result_a["sell_signals"][$i]),
-					"jw_factor" => round(abs($result["last_year"]["per"][$i] - 0.5) * (count($result_a["sell_signals"][$i]) - count($result_a["buy_signals"][$i])) / 5, 2),
-				];
-			}
+			$indicators[] = [
+				"history_id" => $s->history_id,
+				"nemonico" => $s->nemonico,
+				"date" => $s->date,
+				"adx" => round($result["adx"]["adx"][$i], 3),
+				"adx_pdi" => round($result["adx"]["pdi"][$i], 3),
+				"adx_mdi" => round($result["adx"]["mdi"][$i], 3),
+				"atr" => round($result["atr"][$i], 3),
+				"bb_u" => round($result["bb"]["uppers"][$i], 3),
+				"bb_m" => round($result["bb"]["middles"][$i], 3),
+				"bb_l" => round($result["bb"]["lowers"][$i], 3),
+				"cci" => round($result["cci"][$i], 3),
+				"ema_5" => round($result["ema"]["ema_5"][$i], 3),
+				"ema_20" => round($result["ema"]["ema_20"][$i], 3),
+				"ema_60" => round($result["ema"]["ema_60"][$i], 3),
+				"ema_120" => round($result["ema"]["ema_120"][$i], 3),
+				"ema_200" => round($result["ema"]["ema_200"][$i], 3),
+				"env_u" => round($result["env"]["uppers"][$i], 3),
+				"env_l" => round($result["env"]["lowers"][$i], 3),
+				"ich_a" => round($result["ich"]["span_a"][$i], 3),
+				"ich_b" => round($result["ich"]["span_b"][$i], 3),
+				"macd" => round($result["macd"]["macd"][$i], 3),
+				"macd_sig" => round($result["macd"]["macd_sig"][$i], 3),
+				"macd_div" => round($result["macd"]["macd_div"][$i], 3),
+				"mfi" => round($result["mfi"][$i], 3),
+				"mom" => round($result["mom"]["mom"][$i], 3),
+				"mom_sig" => round($result["mom"]["mom_signal"][$i], 3),
+				"psar" => round($result["psar"][$i], 3),
+				"pch_u" => round($result["pch"]["uppers"][$i], 3),
+				"pch_l" => round($result["pch"]["lowers"][$i], 3),
+				"ppo" => round($result["ppo"][$i], 3),
+				"rsi" => round($result["rsi"][$i], 3),
+				"sma_5" => round($result["sma"]["sma_5"][$i], 3),
+				"sma_20" => round($result["sma"]["sma_20"][$i], 3),
+				"sma_60" => round($result["sma"]["sma_60"][$i], 3),
+				"sma_120" => round($result["sma"]["sma_120"][$i], 3),
+				"sma_200" => round($result["sma"]["sma_200"][$i], 3),
+				"sto_k" => round($result["sto"]["k"][$i], 3),
+				"sto_d" => round($result["sto"]["d"][$i], 3),
+				"trix" => round($result["trix"]["trix"][$i], 3),
+				"trix_sig" => round($result["trix"]["trix_signal"][$i], 3),
+				"last_year_min" => $result["last_year"]["min"][$i],
+				"last_year_max" => $result["last_year"]["max"][$i],
+				"last_year_per" => $result["last_year"]["per"][$i],
+				"buy_signal" => implode(",", $result_a["buy_signals"][$i]),
+				"buy_signal_qty" => count($result_a["buy_signals"][$i]),
+				"sell_signal" => implode(",", $result_a["sell_signals"][$i]),
+				"sell_signal_qty" => count($result_a["sell_signals"][$i]),
+				"jw_factor" => round(abs($result["last_year"]["per"][$i] - 0.5) * (count($result_a["sell_signals"][$i]) - count($result_a["buy_signals"][$i])) / 5, 2),
+			];
 		}
 		
-		if ($indicators) $this->gm->update_multi("stock", $indicators, "stock_id");
+		
+		$max_date = $this->gm->filter("technical_analysis", ["nemonico" => $nemonico], null, null, [["date", "desc"]], 1);
+		$max_date = $max_date ? $max_date[0]->date : "2000-01-01";
+		
+		//echo $max_date."<br/><br/>";
+		
+		$indicators_reverse = array_reverse($indicators);
+		foreach($indicators_reverse as $item){
+			//print_r($item); echo "<br/><br/>";
+			
+			$f = ["nemonico" => $nemonico, "history_id" => $item["history_id"]];
+			
+			if ($this->gm->filter("technical_analysis", $f)) $this->gm->update("technical_analysis", $f, $item);
+			else $this->gm->insert("technical_analysis", $item);
+			
+			if ($item["date"] === $max_date) break;
+		}
 	}
 	
 	//usado en: update_indicators
@@ -625,7 +764,7 @@ class Company extends CI_Controller {
 		usort($datas, function($a, $b){ return $a->date < $b->date; });
 		
 		//4. obtener ultima fecha de registro en DB
-		$last_stock = $this->gm->filter("stock", ["nemonico" => $code], null, null, [["date", "desc"]], 1, 0);
+		$last_stock = $this->gm->filter("history_recent", ["nemonico" => $code], null, null, [["date", "desc"]], 1, 0);
 		if ($last_stock) $last_date = $last_stock[0]->date; else $last_date = "1999-01-01";
 		$last_date = strtotime($last_date);
 		
@@ -639,7 +778,7 @@ class Company extends CI_Controller {
 		}
 		
 		//6. insertar a la base de datos
-		$qty = $this->gm->insert_multi("stock", $new_records);
+		$qty = $this->gm->insert_multi("history", $new_records);
 		
 		//7. actualizar cantidad de registros total, de este y de ultimo anio
 		$this_year = date("Y");
@@ -649,12 +788,12 @@ class Company extends CI_Controller {
 		$last_year_f = ["nemonico" => $code, "date >=" => $last_year."-01-01", "date <=" => $last_year."-12-31"];
 		
 		$data = [
-			"qty_total" => $this->gm->qty("stock", ["nemonico" => $code]),
-			"qty_this_year" => $this->gm->qty("stock", $this_year_f),
-			"qty_last_year" => $this->gm->qty("stock", $last_year_f),
+			"qty_total" => $this->gm->qty("history", ["nemonico" => $code]),
+			"qty_this_year" => $this->gm->qty("history", $this_year_f),
+			"qty_last_year" => $this->gm->qty("history", $last_year_f),
 		];
 		
-		$this->gm->update("company", ["stock" => $code], $data);
+		$this->gm->update("company", ["nemonico" => $code], $data);
 		
 		//8. actualizar los indicadores
 		$this->update_indicators($code);

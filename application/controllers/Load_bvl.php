@@ -114,33 +114,37 @@ class Load_bvl extends CI_Controller {
 		$qty_new = 0;
 		
 		$data = [];
-		$companies = $this->gen_m->all("history_counter");
+		$companies = $this->gen_m->all("history_counter", [["factor", "desc"]]);
 		foreach($companies as $i_com => $com){
-			$load_bvl = true;
-			$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
-			if ($today){
-				if ($today[0]->date_previous === null) $load_bvl = false;
-				elseif ($com->max_date) if ($com->max_date === $today[0]->date_previous) $load_bvl = false;
-			}
+			//print_r($com); echo "<br/>";
 			
-			if ($load_bvl){
-				$from = $com->max_date ? date("Y-m-d", strtotime("+1 day", strtotime($com->max_date))) : "2000-01-01";
-				
-				$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$com->nemonico."?startDate=".$from."&endDate=".$to;
-				$res = $this->exec_curl($url, null, false);
-				
-				foreach($res as $stock){
-					unset($stock->id);
-					if ($stock->quantityNegotiated) $data[] = (array) $stock;
+			if (($com->factor > 0) and ($com->factor < 1)){
+				$load_bvl = true;
+				$today = $this->gen_m->filter("today", ["nemonico" => $com->nemonico]);
+				if ($today){
+					if ($today[0]->date_previous === null) $load_bvl = false;
+					elseif ($com->max_date) if ($com->max_date === $today[0]->date_previous) $load_bvl = false;
 				}
 				
-				if (count($data) > 5000){
-					$qty_new += $this->gen_m->insert_multi("history", $data);
-					$data = [];
+				if ($load_bvl){
+					$from = $com->max_date ? date("Y-m-d", strtotime("+1 day", strtotime($com->max_date))) : "2000-01-01";
+					
+					$url = "https://dataondemand.bvl.com.pe/v1/issuers/stock/".$com->nemonico."?startDate=".$from."&endDate=".$to;
+					$res = $this->exec_curl($url, null, false);
+					
+					foreach($res as $stock){
+						unset($stock->id);
+						if ($stock->quantityNegotiated) $data[] = (array) $stock;
+					}
+					
+					if (count($data) > 5000){
+						$qty_new += $this->gen_m->insert_multi("history", $data);
+						$data = [];
+					}
 				}
 			}
 			
-			if ($i_com > 10) break;
+			//if ($i_com > 10) break;
 		}
 		
 		if ($data) $qty_new += $this->gen_m->insert_multi("history", $data);
@@ -162,6 +166,9 @@ class Load_bvl extends CI_Controller {
 			print_r($item); echo "<br/><br/>";
 		}
 	}
+
+
+
 
 
 	//usado en: update_stocks_from_bvl

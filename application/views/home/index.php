@@ -1,9 +1,6 @@
 <div class="pagetitle mb-3">
 	<div class="d-flex justify-content-between">
 		<h1><?= date("Y-m-d") ?></h1>
-		<a class="btn btn-primary btn-sm" href="<?= base_url() ?>home/update_company" target="_blank">
-			Actualizar Empresas
-		</a>
 	</div>
 </div>
 <section class="section">

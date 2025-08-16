@@ -1,0 +1,2 @@
+cd C:\xampp\mysql\bin
+mysqldump -uroot -p my_bvl > C:\xampp\htdocs\my_bvl\db\bvl_backup.sql
