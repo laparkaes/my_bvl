@@ -63,19 +63,26 @@ class Company extends CI_Controller {
 			redirect("/company");
 		}
 		
-		//$company->sector = $this->gm->unique("sector", "sector_id", $company->sector_id);
-		//$memories = $this->gm->filter("memory", ["companyName" => $company->companyName], null, null, [["date", "desc"]]);
-		$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico], null, null, [["date", "desc"]]);
 		
-		$data = [
-			"companyCode" => "",
-			"inputCompany" => $company->nemonico,
-			"sector" => "",
-			"today" => false,
-		];
+		$technical = $this->gm->filter("technical_analysis", ["nemonico" => $company->nemonico], null, null, [["date", "desc"]]);
+		echo "Technical ============================".count($technical)."<br/><br/>";
+		foreach($technical as $item){print_r($item); echo "<br/><br/>"; break;}
+		
+		$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico, "close >" => 0], null, null, [["date", "desc"]]);
+		echo "Trend data ============================".count($stocks)."<br/><br/>";
+		foreach($stocks as $item){print_r($item); echo "<br/><br/>"; break;}
 		
 		$offers = ["buy" => 0, "sell" => 0];
-		$last_stock = $this->exec_curl("https://dataondemand.bvl.com.pe/v1/stock-quote/market", $data, true);
+		
+		$today_offer = $this->gm->unique("today", "nemonico", $company->nemonico);
+		print_r($today_offer); echo "<br/><br/>";
+		
+		
+		
+		
+		
+		return;
+		
 		if ($last_stock){
 			$last_stock = $last_stock->content[0];
 			$offers["buy"] = (property_exists($last_stock, 'buy')) ? $last_stock->buy : "";
@@ -225,6 +232,56 @@ class Company extends CI_Controller {
 		}
 		
 		echo "Fin de actualizacion de empresas.<br/>";
+	}
+	
+	public function update_today(){
+		
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => "",
+			"sector" => "",
+			"today" => false,
+		];
+		
+		$today = $this->exec_curl("https://dataondemand.bvl.com.pe/v1/stock-quote/market", $data, true);
+		if ($today){
+			
+			$aux = $this->gm->structure("today");
+			print_r($aux); echo "<br/><br/>";
+			
+//stdClass Object ( [today_id] => [] => [] => [] => [] => [] => [] => [] => [] => [date_previous] => [previous] => [buy] => [sell] => [minimun] => [maximun] => [open] => [close] => [variation_per] => [currency] => [nego_qty] => [nego_amount] => [nego_amount_pen] => [num_operation] => [num_nego] => [exderecho] => [unity] => [segment] => )
+
+//stdClass Object ( [] => XXX [] => American Airlines Group Inc [] => American Airlines Group Inc [] => AAL [] => 2025-08-15T15:55:14 [previousDate] => 2025-08-13 [buy] => 9.2 [sell] => 13.5 [last] => 13.1 [minimun] => 13.1 [maximun] => 13.1 [opening] => 13.1 [previous] => 13 [negotiatedQuantity] => 9000 [negotiatedAmount] => 117900 [negotiatedNationalAmount] => 419135 [operationsNumber] => 1 [exderecho] => 13.10 [percentageChange] => 0.77 [currency] => US$ [unity] => 1 [segment] => RV3 [] => 2025-08-15T17:40:11.531 [numNeg] => 0 ) 
+
+//stdClass Object ( [] => 14000 [] => SCOTIABANK PERU S.A.A. [] => Scotiabank Perú [] => SCOTIAC1 [] => CB [] => BANCOS Y FINANCIERAS [] => 2025-08-15T19:29:19 [previousDate] => 2025-08-01 [buy] => 11.8 [sell] => 11.9 [last] => 11.8 [minimun] => 11.8 [maximun] => 11.8 [opening] => 11.8 [previous] => 11.45 [negotiatedQuantity] => 3210 [negotiatedAmount] => 37878 [negotiatedNationalAmount] => 37878 [operationsNumber] => 3 [exderecho] => 11.80 [percentageChange] => 3.06 [currency] => S/ [unity] => 1 [segment] => RV1 [] => 2025-08-15T17:40:11.531 [numNeg] => 0 ) 
+			
+			
+			foreach($today->content as $item){
+				$data = [];
+				
+				$data["code"] = (property_exists($today, 'companyCode')) ? $item->companyCode : null;
+				$data["name"] = (property_exists($today, 'companyName')) ? $item->companyName : null;
+				$data["name_short"] = (property_exists($today, 'shortName')) ? $item->shortName : null;
+				$data["sector_code"] = (property_exists($today, 'sectorCode')) ? $item->sectorCode : null;
+				$data["sector_desc"] = (property_exists($today, 'sectorDescription')) ? $item->sectorDescription : null;
+				$data["nemonico"] = (property_exists($today, 'nemonico')) ? $item->nemonico : null;
+				$data["date_last"] = (property_exists($today, 'lastDate')) ? $item->lastDate : null;
+				$data["date_created"] = (property_exists($today, 'createdDate')) ? $item->createdDate : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				$data[""] = (property_exists($today, '')) ? $item-> : null;
+				
+				print_r($item);
+				echo "<br/><br/>";
+			}
+		}else echo "No today data on BVL.";
+		
 	}
 	
 	public function update_history(){
