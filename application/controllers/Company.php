@@ -27,7 +27,9 @@ class Company extends CI_Controller {
 		//3. cargar todas las companias con registros de stock
 		$companies = $this->gm->filter("company", ["qty_total >" => 0], null, null, [["qty_this_year", "desc"], ["qty_last_year", "desc"], ["name", "asc"]]);
 		
+		/*
 		//4. cargar ultimos 6 meses de registros para armar resumen, arreglo con puntos segun jw_factor.
+		
 		$arr_stocks = $resume = [];
 		foreach($companies as $c) if (in_array($c->company_id, $favorites)){
 			$favorites[$c->nemonico] = $c->company_id;
@@ -41,11 +43,12 @@ class Company extends CI_Controller {
 		$w_in = [["field" => "nemonico", "values" => $arr_stocks]];
 		$stocks = $this->gm->filter("history", $w, null, $w_in, [["nemonico", "asc"], ["date", "desc"]]);
 		foreach($stocks as $stock) $resume[$stock->nemonico][] = $this->set_jw_factor($stock);
+		*/
 		
 		$data = [
 			"sectors" => $sectors,
 			"favorites" => $favorites,
-			"resume" => $resume,
+			//"resume" => $resume,
 			"companies" => $companies,
 			"main" => "company/index",
 		];
@@ -69,14 +72,35 @@ class Company extends CI_Controller {
 		foreach($technical as $item){print_r($item); echo "<br/><br/>"; break;}
 		
 		$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico, "close >" => 0], null, null, [["date", "desc"]]);
-		echo "Trend data ============================".count($stocks)."<br/><br/>";
-		foreach($stocks as $item){print_r($item); echo "<br/><br/>"; break;}
 		
 		$today = $this->gm->unique("today", "nemonico", $company->nemonico);
+		$today = $this->today_to_history($today);
 		//print_r($today); echo "<br/><br/>";
 		
-		$today = $this->today_to_history($today);
-		print_r($today); echo "<br/><br/>";
+		if (($today->close > 0) and (strtotime($today->date) > strtotime($stocks[0]->date))){
+			
+			//validate if all history is saved in local DB
+			if ($stocks[0]->yesterday !== $stocks[1]->date){
+				//update stock data between omitted dates
+				$this->update_stocks_from_bvl($company->nemonico, $stocks[1]->date);
+				$stocks = $this->gm->filter("history", ["nemonico" => $company->nemonico, "close >" => 0], null, null, [["date", "desc"]]);
+			}
+			
+			array_unshift($stocks, $today);
+			
+			$result = $this->calculate_indicators($stocks);
+			$result_a = $this->indicator_analysis($stocks, $result);
+			
+			$today_tech = $this->gm->structure("technical_analysis");
+			
+			print_r($today_tech); echo "<br/><br/>";
+			
+			print_r($result); echo "<br/><br/>";
+			print_r($result_a); echo "<br/><br/>";
+		}
+		
+		echo "Trend data ============================".count($stocks)."<br/><br/>";
+		foreach($stocks as $i => $item){print_r($item); echo "<br/><br/>"; if ($i > 10) break;}
 		
 		///////////////////////////////////////
 		
@@ -186,11 +210,12 @@ class Company extends CI_Controller {
 	private function today_to_history($today){
 		$history = $this->gm->structure("history");
 		$history->nemonico = $today->nemonico;
-		$history->date = $today->date_created;
+		$history->date = date("Y-m-d", strtotime($today->date_created));
 		$history->open = $today->open;
 		$history->close = $today->close;
 		$history->high = $today->maximun;
 		$history->low = $today->minimun;
+		$history->average = round(($today->minimun + $today->maximun) / 2, 2);
 		$history->quantityNegotiated = $today->nego_qty;
 		$history->solAmountNegotiated = $today->nego_amount_pen;
 		$history->dollarAmountNegotiated = round($today->nego_amount_pen / 3.6, 2);
@@ -587,7 +612,6 @@ class Company extends CI_Controller {
 				"jw_factor" => round(abs($result["last_year"]["per"][$i] - 0.5) * (count($result_a["sell_signals"][$i]) - count($result_a["buy_signals"][$i])) / 5, 2),
 			];
 		}
-		
 		
 		$max_date = $this->gm->filter("technical_analysis", ["nemonico" => $nemonico], null, null, [["date", "desc"]], 1);
 		$max_date = $max_date ? $max_date[0]->date : "2000-01-01";

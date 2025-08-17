@@ -39,7 +39,7 @@
 					<h5 class="card-title">Favoritos</h5>
 					<table class="table table-striped">
 						<tbody>
-							<?php foreach($resume as $stock => $r){ ?>
+							<?php $resume = []; foreach($resume as $stock => $r){ ?>
 							<tr>
 								<td>
 									<i class="bi bi-star<?= (in_array($favorites[$stock], $favorites) ? "-fill" : "") ?> ic_fav_control ic_fav_<?= $favorites[$stock] ?>" value="<?= $favorites[$stock] ?>"></i>
