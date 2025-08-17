@@ -11,6 +11,8 @@ class Home extends CI_Controller {
 	}
 
 	public function index(){
+		$this->update_today();
+		
 		//1. cargar ultimos registros de cada empresa
 		$dates = [];
 		
@@ -130,6 +132,59 @@ class Home extends CI_Controller {
 		return $this->exec_curl($url, $data, true);
 	}
 
+	public function update_today(){
+		$data = [
+			"companyCode" => "",
+			"inputCompany" => "",
+			"sector" => "",
+			"today" => false,
+		];
+		
+		$today = $this->exec_curl("https://dataondemand.bvl.com.pe/v1/stock-quote/market", $data, true);
+		if ($today){
+			
+			//$aux = $this->gm->structure("today"); print_r($aux); echo "<br/><br/>";
+			$this->gm->empty_t("today");
+			
+			foreach($today->content as $item){
+				$data = [];
+				
+				$data["code"] = (property_exists($item, 'companyCode')) ? $item->companyCode : null;
+				$data["name"] = (property_exists($item, 'companyName')) ? $item->companyName : null;
+				$data["name_short"] = (property_exists($item, 'shortName')) ? $item->shortName : null;
+				$data["sector_code"] = (property_exists($item, 'sectorCode')) ? $item->sectorCode : null;
+				$data["sector_desc"] = (property_exists($item, 'sectorDescription')) ? $item->sectorDescription : null;
+				$data["nemonico"] = (property_exists($item, 'nemonico')) ? $item->nemonico : null;
+				$data["date_last"] = (property_exists($item, 'lastDate')) ? $item->lastDate : null;
+				$data["date_created"] = (property_exists($item, 'createdDate')) ? $item->createdDate : null;
+				$data["date_previous"] = (property_exists($item, 'previousDate')) ? $item->previousDate : null;
+				$data["previous"] = (property_exists($item, 'previous')) ? $item->previous : null;
+				$data["buy"] = (property_exists($item, 'buy')) ? $item->buy : null;
+				$data["sell"] = (property_exists($item, 'sell')) ? $item->sell : null;
+				$data["minimun"] = (property_exists($item, 'minimun')) ? $item->minimun : null;
+				$data["maximun"] = (property_exists($item, 'maximun')) ? $item->maximun : null;
+				$data["open"] = (property_exists($item, 'opening')) ? $item->opening : null;
+				$data["close"] = (property_exists($item, 'last')) ? $item->last : null;
+				$data["variation_per"] = (property_exists($item, 'percentageChange')) ? $item->percentageChange : null;
+				$data["currency"] = (property_exists($item, 'currency')) ? $item->currency : null;
+				$data["nego_qty"] = (property_exists($item, 'negotiatedQuantity')) ? $item->negotiatedQuantity : null;
+				$data["nego_amount"] = (property_exists($item, 'negotiatedAmount')) ? $item->negotiatedAmount : null;
+				$data["nego_amount_pen"] = (property_exists($item, 'negotiatedNationalAmount')) ? $item->negotiatedNationalAmount : null;
+				$data["num_operation"] = (property_exists($item, 'operationsNumber')) ? $item->operationsNumber : null;
+				$data["num_nego"] = (property_exists($item, 'numNeg')) ? $item->numNeg : null;
+				$data["exderecho"] = (property_exists($item, 'exderecho')) ? $item->exderecho : null;
+				$data["unity"] = (property_exists($item, 'unity')) ? $item->unity : null;
+				$data["segment"] = (property_exists($item, 'segment')) ? $item->segment : null;
+				//$data[""] = (property_exists($item, '')) ? $item-> : null;
+				
+				//print_r($item); echo "<br/><br/>";
+				//print_r($data); echo "<br/><br/>";
+				
+				$this->gm->insert("today", $data);
+			}
+		}
+	}
+	
 	//usado en: update_stocks_from_bvl
 	private function exec_curl($url, $datas = null, $is_post = false){
 		if ($is_post){

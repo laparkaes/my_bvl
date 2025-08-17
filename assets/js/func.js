@@ -586,7 +586,7 @@ function update_stock(){
 		$("#bl_finished").prepend('<div>' + res + '</div>');
 		
 		if ($(".update_datas").length > 0) update_stock();
-		else window.location.href = $("#base_url").val();//location.reload();
+		else window.location.href = $("#base_url").val() + "company/update_today";//location.reload();
 	});
 }
 
